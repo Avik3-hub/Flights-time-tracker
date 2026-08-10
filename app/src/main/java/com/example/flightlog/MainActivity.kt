@@ -12,6 +12,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.lifecycleScope
+import androidx.compose.ui.Modifier
 import com.example.flightlog.data.db.AppDatabase
 import com.example.flightlog.data.db.TariffEntity
 import com.example.flightlog.ui.MainScreen
