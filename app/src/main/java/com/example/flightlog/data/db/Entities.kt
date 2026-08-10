@@ -14,6 +14,13 @@ data class FlightEntity(
     val seaTimeMinutes: Int
 )
 
+@Entity(tableName = "duties")
+data class DutyEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val dateTimestamp: Long,
+    val description: String = ""
+)
+
 @Entity(tableName = "tariffs")
 data class TariffEntity(
     @PrimaryKey val id: Int = 1,
