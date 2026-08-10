@@ -12,6 +12,7 @@ data class MonthlyReport(
     val landPayment: Double,
     val seaPayment: Double,
     val dutyPayment: Double,
+    val flightDayPayment: Double,
     val totalPayment: Double
 ) {
     val totalMinutes: Int get() = totalLandMinutes + totalSeaMinutes
@@ -51,7 +52,8 @@ object CalculationEngine {
         val landPayment = calculateFlightPayment(totalLandMinutes, tariff.landHourlyRate)
         val seaPayment = calculateFlightPayment(totalSeaMinutes, tariff.seaHourlyRate)
         val dutyPayment = totalDutyDays * tariff.dutyDayRate
-        val totalPayment = landPayment + seaPayment + dutyPayment
+        val flightDayPayment = totalFlightDays * tariff.flightDayRate
+        val totalPayment = landPayment + seaPayment + dutyPayment + flightDayPayment
 
         return MonthlyReport(
             totalLandMinutes = totalLandMinutes,
@@ -61,6 +63,7 @@ object CalculationEngine {
             landPayment = landPayment,
             seaPayment = seaPayment,
             dutyPayment = dutyPayment,
+            flightDayPayment = flightDayPayment,
             totalPayment = totalPayment
         )
     }
