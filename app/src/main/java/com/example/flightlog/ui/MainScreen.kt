@@ -378,4 +378,4 @@ fun parseTimeStringToMinutes(timeString: String): Int {
     } catch (e: Exception) {
         0
     }
-}
+
