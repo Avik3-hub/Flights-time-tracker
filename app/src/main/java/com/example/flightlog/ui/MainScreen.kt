@@ -15,10 +15,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.flightlog.data.db.DutyEntity
 import com.example.flightlog.data.db.FlightEntity
 import com.example.flightlog.data.db.TariffEntity
 import com.example.flightlog.domain.CalculationEngine
-import com.example.flightlog.domain.FlightSummary
+import com.example.flightlog.domain.MonthlyReport
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,13 +40,13 @@ fun MainScreen(
     var dutyDaysInput by remember { mutableStateOf("") }
     val dutyDays = dutyDaysInput.toIntOrNull() ?: 0
 
-    val flightSummary: FlightSummary = remember(flights, tariff) {
-        CalculationEngine.calculateSummary(flights, emptyList(), tariff)
+    val dutyEntity = remember(dutyDays) {
+        DutyEntity(month = 0, year = 0, dutyDays = dutyDays)
     }
 
-    // Итоговый расчет: полеты + дежурства
-    val dutyPay = dutyDays * tariff.dutyDayRate
-    val totalPayout = flightSummary.grandTotalMoney + dutyPay
+    val monthlyReport: MonthlyReport = remember(flights, dutyEntity, tariff) {
+        CalculationEngine.calculateMonthlyReport(flights, dutyEntity, tariff)
+    }
 
     Scaffold(
         topBar = {
@@ -68,10 +69,7 @@ fun MainScreen(
             // 1. Сводная карточка отчета
             item {
                 SummaryCard(
-                    summary = flightSummary,
-                    dutyDays = dutyDays,
-                    dutyPay = dutyPay,
-                    totalPayout = totalPayout,
+                    report = monthlyReport,
                     dutyDaysInput = dutyDaysInput,
                     onDutyDaysChange = { dutyDaysInput = it }
                 )
@@ -149,8 +147,8 @@ fun MainScreen(
                         Button(
                             onClick = {
                                 if (aircraftNumber.isNotBlank()) {
-                                    val landMins = CalculationEngine.parseTimeStringToMinutes(landTimeInput)
-                                    val seaMins = CalculationEngine.parseTimeStringToMinutes(seaTimeInput)
+                                    val landMins = parseTimeStringToMinutes(landTimeInput)
+                                    val seaMins = parseTimeStringToMinutes(seaTimeInput)
                                     
                                     onAddFlight(
                                         FlightEntity(
@@ -198,16 +196,10 @@ fun MainScreen(
 
 @Composable
 fun SummaryCard(
-    summary: FlightSummary,
-    dutyDays: Int,
-    dutyPay: Double,
-    totalPayout: Double,
+    report: MonthlyReport,
     dutyDaysInput: String,
     onDutyDaysChange: (String) -> Unit
 ) {
-    val (totalHours, totalMins) = CalculationEngine.minutesToHoursAndMinutes(summary.totalMinutes)
-    val (landHours, landMins) = CalculationEngine.minutesToHoursAndMinutes(summary.totalLandMinutes)
-
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -221,7 +213,7 @@ fun SummaryCard(
                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
             )
             Text(
-                text = "$totalPayout ₽",
+                text = "${String.format("%.2f", report.totalPayment)} ₽",
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -250,7 +242,7 @@ fun SummaryCard(
                 Column(horizontalAlignment = Alignment.End) {
                     Text("За дежурства:", fontSize = 12.sp)
                     Text(
-                        text = "$dutyPay ₽",
+                        text = "${String.format("%.2f", report.dutyPayment)} ₽",
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp
                     )
@@ -269,7 +261,7 @@ fun SummaryCard(
                 Column {
                     Text("Общий налет", fontSize = 12.sp)
                     Text(
-                        text = "${totalHours}ч ${totalMins}м",
+                        text = report.totalMinutes.minutesToHoursAndMinutes(),
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp
                     )
@@ -277,7 +269,7 @@ fun SummaryCard(
                 Column {
                     Text("Налет Земля", fontSize = 12.sp)
                     Text(
-                        text = "${landHours}ч ${landMins}м",
+                        text = report.totalLandMinutes.minutesToHoursAndMinutes(),
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp
                     )
@@ -285,7 +277,7 @@ fun SummaryCard(
                 Column {
                     Text("Полетных дней", fontSize = 12.sp)
                     Text(
-                        text = "${summary.totalFlightDays} дн.",
+                        text = "${report.totalFlightDays} дн.",
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp
                     )
@@ -297,8 +289,6 @@ fun SummaryCard(
 
 @Composable
 fun FlightRowItem(flight: FlightEntity, onDelete: () -> Unit) {
-    val (landH, landM) = CalculationEngine.minutesToHoursAndMinutes(flight.landTimeMinutes)
-    
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -323,7 +313,7 @@ fun FlightRowItem(flight: FlightEntity, onDelete: () -> Unit) {
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
-                    text = "Земля: ${landH}ч ${landM}м",
+                    text = "Земля: ${flight.landTimeMinutes.minutesToHoursAndMinutes()}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -338,27 +328,29 @@ fun FlightRowItem(flight: FlightEntity, onDelete: () -> Unit) {
         }
     }
 }
-// Универсальные функции перевода минут в формат "ЧЧ:ММ" для любых типов чисел
+
+// Универсальные функции перевода минут в формат строки
 fun Number?.minutesToHoursAndMinutes(): String {
     val totalMinutes = this?.toInt() ?: 0
     val hours = totalMinutes / 60
     val minutes = totalMinutes % 60
-    return String.format("%02d:%02d", hours, minutes)
+    return String.format("%d ч %02d мин", hours, minutes)
 }
 
 fun Int?.minutesToHoursAndMinutes(): String {
     val totalMinutes = this ?: 0
     val hours = totalMinutes / 60
     val minutes = totalMinutes % 60
-    return String.format("%02d:%02d", hours, minutes)
+    return String.format("%d ч %02d мин", hours, minutes)
 }
 
 fun Long?.minutesToHoursAndMinutes(): String {
     val totalMinutes = (this ?: 0L).toInt()
     val hours = totalMinutes / 60
     val minutes = totalMinutes % 60
-    return String.format("%02d:%02d", hours, minutes)
+    return String.format("%d ч %02d мин", hours, minutes)
 }
+
 // Парсинг строки "ЧЧ:ММ" или "ЧЧ" в общее число минут
 fun parseTimeStringToMinutes(timeString: String): Int {
     if (timeString.isBlank()) return 0
