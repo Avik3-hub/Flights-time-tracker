@@ -338,3 +338,13 @@ fun FlightRowItem(flight: FlightEntity, onDelete: () -> Unit) {
         }
     }
 }
+// Вспомогательные функции форматирования времени
+fun minutesToHoursAndMinutes(totalMinutes: Int): String {
+    val hours = totalMinutes / 60
+    val minutes = totalMinutes % 60
+    return String.format(java.util.Locale.getDefault(), "%d ч %02d мин", hours, minutes)
+}
+
+fun Int.minutesToHoursAndMinutes(): String {
+    return minutesToHoursAndMinutes(this)
+}
