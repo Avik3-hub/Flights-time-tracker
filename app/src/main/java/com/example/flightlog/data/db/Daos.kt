@@ -21,12 +21,13 @@ interface FlightDao {
 
 @Dao
 interface DutyDao {
-    @Query("SELECT * FROM duty_records WHERE month = :month AND year = :year LIMIT 1")
-    suspend fun getDutyForMonth(month: Int, year: Int): DutyEntity?
+    @Query("SELECT * FROM duty_records")
+    fun getAllDuties(): Flow<List<DutyEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertOrUpdateDuty(duty: DutyEntity)
+    suspend fun saveDuty(duty: DutyEntity)
 }
+
 
 @Dao
 interface TariffDao {
