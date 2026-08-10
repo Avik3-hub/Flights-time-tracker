@@ -338,13 +338,25 @@ fun FlightRowItem(flight: FlightEntity, onDelete: () -> Unit) {
         }
     }
 }
-// Вспомогательные функции форматирования времени
-fun minutesToHoursAndMinutes(totalMinutes: Int): String {
-    val hours = totalMinutes / 60
-    val minutes = totalMinutes % 60
-    return String.format(java.util.Locale.getDefault(), "%d ч %02d мин", hours, minutes)
+// --- Вспомогательные функции перевода минут в форматированную строку ---
+
+// 1. Обычная функция (для вызова вида minutesToHoursAndMinutes(totalMinutes))
+fun minutesToHoursAndMinutes(minutes: Int?): String {
+    val mins = minutes ?: 0
+    val hours = mins / 60
+    val remainderMins = mins % 60
+    return String.format("%d ч %02d мин", hours, remainderMins)
 }
 
-fun Int.minutesToHoursAndMinutes(): String {
-    return minutesToHoursAndMinutes(this)
+fun minutesToHoursAndMinutes(minutes: Long?): String {
+    return minutesToHoursAndMinutes(minutes?.toInt())
+}
+
+// 2. Функции-расширения (для вызова вида totalMinutes.minutesToHoursAndMinutes())
+fun Int?.minutesToHoursAndMinutes(): String {
+    return com.example.flightlog.ui.minutesToHoursAndMinutes(this)
+}
+
+fun Long?.minutesToHoursAndMinutes(): String {
+    return com.example.flightlog.ui.minutesToHoursAndMinutes(this)
 }
