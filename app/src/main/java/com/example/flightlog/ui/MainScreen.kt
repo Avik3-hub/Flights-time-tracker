@@ -7,6 +7,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -199,7 +200,7 @@ fun MainScreen(
 
             // 4. Список полетов
             items(flights) { flight ->
-                FlightRowItem(flight = flight, onDelete = { onDeleteFlight(flight) })
+                FlightRowItem(flight = flight, onDelete = { onDeleteFlight(flight.id) })
             }
         }
     }
