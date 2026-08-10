@@ -359,3 +359,20 @@ fun Long?.minutesToHoursAndMinutes(): String {
     val minutes = totalMinutes % 60
     return String.format("%02d:%02d", hours, minutes)
 }
+// Парсинг строки "ЧЧ:ММ" или "ЧЧ" в общее число минут
+fun parseTimeStringToMinutes(timeString: String): Int {
+    if (timeString.isBlank()) return 0
+    val parts = timeString.split(":")
+    return try {
+        if (parts.size == 2) {
+            val hours = parts[0].trim().toIntOrNull() ?: 0
+            val minutes = parts[1].trim().toIntOrNull() ?: 0
+            hours * 60 + minutes
+        } else {
+            val hours = timeString.trim().toIntOrNull() ?: 0
+            hours * 60
+        }
+    } catch (e: Exception) {
+        0
+    }
+}
