@@ -1,14 +1,11 @@
 package com.example.flightlog.data.db
 
-import androidx.room.Dao
-import androidx.room.Delete
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
-import androidx.room.Query
+import androidx.room.*
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface FlightDao {
+    // === ПОЛЕТЫ (flight_records) ===
     @Query("SELECT * FROM flight_records ORDER BY dateTimestamp DESC")
     fun getAllFlights(): Flow<List<FlightEntity>>
 
@@ -17,23 +14,19 @@ interface FlightDao {
 
     @Delete
     suspend fun deleteFlight(flight: FlightEntity)
-}
 
-@Dao
-interface DutyDao {
-    @Query("SELECT * FROM duty_records WHERE year = :year AND month = :month")
-    fun getDutiesForMonth(month: Int, year: Int): Flow<List<DutyEntity>>
+    // === ДЕЖУРСТВА (duty_records) ===
+    @Query("SELECT * FROM duty_records WHERE month = :month AND year = :year LIMIT 1")
+    fun getDutyForMonth(month: Int, year: Int): Flow<DutyEntity?>
+
+    @Query("SELECT * FROM duty_records")
+    fun getAllDuties(): Flow<List<DutyEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertDuty(duty: DutyEntity)
 
-    @Delete
-    suspend fun deleteDuty(duty: DutyEntity)
-}
-
-@Dao
-interface TariffDao {
-    @Query("SELECT * FROM tariff_config WHERE id = 1")
+    // === ТАРИФЫ (tariff_config) ===
+    @Query("SELECT * FROM tariff_config WHERE id = 1 LIMIT 1")
     fun getTariff(): Flow<TariffEntity?>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
