@@ -30,7 +30,8 @@ class MainActivity : ComponentActivity() {
             FlightLogTheme {
                 var currentScreen by remember { mutableStateOf("main") }
 
-                val currentTariff by db.tariffDao().getTariff().collectAsState(initial = TariffEntity())
+                val rawTariff by db.tariffDao().getTariff().collectAsState(initial = null)
+val currentTariff = rawTariff ?: TariffEntity()
                 val flights by db.flightDao().getAllFlights().collectAsState(initial = emptyList())
                 val dutyRecords by db.dutyDao().getAllDuties().collectAsState(initial = emptyList())
 
