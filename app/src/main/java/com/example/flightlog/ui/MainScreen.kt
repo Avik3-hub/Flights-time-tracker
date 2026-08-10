@@ -28,20 +28,29 @@ fun MainScreen(
     onAddFlight: (FlightEntity) -> Unit,
     onDeleteFlight: (FlightEntity) -> Unit
 ) {
+    // Поля ввода для полета
     var aircraftNumber by remember { mutableStateOf("") }
     var captain by remember { mutableStateOf("") }
     var missionNumber by remember { mutableStateOf("") }
-    var landTimeInput by remember { mutableStateOf("") } // "03:35"
-    var seaTimeInput by remember { mutableStateOf("") }  // "00:00"
+    var landTimeInput by remember { mutableStateOf("") }
+    var seaTimeInput by remember { mutableStateOf("") }
 
-    val summary: FlightSummary = remember(flights, tariff) {
+    // Поле ввода дней дежурства / командировки (Варандей)
+    var dutyDaysInput by remember { mutableStateOf("") }
+    val dutyDays = dutyDaysInput.toIntOrNull() ?: 0
+
+    val flightSummary: FlightSummary = remember(flights, tariff) {
         CalculationEngine.calculateSummary(flights, emptyList(), tariff)
     }
+
+    // Итоговый расчет: полеты + дежурства
+    val dutyPay = dutyDays * tariff.dutyDayRate
+    val totalPayout = flightSummary.grandTotalMoney + dutyPay
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Учет налета", fontWeight = FontWeight.Bold) },
+                title = { Text("Учет налета и командировок", fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -58,10 +67,17 @@ fun MainScreen(
         ) {
             // 1. Сводная карточка отчета
             item {
-                SummaryCard(summary = summary)
+                SummaryCard(
+                    summary = flightSummary,
+                    dutyDays = dutyDays,
+                    dutyPay = dutyPay,
+                    totalPayout = totalPayout,
+                    dutyDaysInput = dutyDaysInput,
+                    onDutyDaysChange = { dutyDaysInput = it }
+                )
             }
 
-            // 2. Форма добавления полета
+            // 2. Форма добавления нового полета
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -146,7 +162,6 @@ fun MainScreen(
                                             seaTimeMinutes = seaMins
                                         )
                                     )
-                                    // Сброс полей ввода
                                     aircraftNumber = ""
                                     captain = ""
                                     missionNumber = ""
@@ -173,7 +188,7 @@ fun MainScreen(
                 )
             }
 
-            // 4. Элементы списка
+            // 4. Список полетов
             items(flights) { flight ->
                 FlightRowItem(flight = flight, onDelete = { onDeleteFlight(flight) })
             }
@@ -182,7 +197,14 @@ fun MainScreen(
 }
 
 @Composable
-fun SummaryCard(summary: FlightSummary) {
+fun SummaryCard(
+    summary: FlightSummary,
+    dutyDays: Int,
+    dutyPay: Double,
+    totalPayout: Double,
+    dutyDaysInput: String,
+    onDutyDaysChange: (String) -> Unit
+) {
     val (totalHours, totalMins) = CalculationEngine.minutesToHoursAndMinutes(summary.totalMinutes)
     val (landHours, landMins) = CalculationEngine.minutesToHoursAndMinutes(summary.totalLandMinutes)
 
@@ -194,12 +216,12 @@ fun SummaryCard(summary: FlightSummary) {
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "Итоговая выплата",
+                text = "Общая выплата за месяц",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
             )
             Text(
-                text = "${summary.grandTotalMoney} ₽",
+                text = "$totalPayout ₽",
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -209,6 +231,37 @@ fun SummaryCard(summary: FlightSummary) {
             HorizontalDivider(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f))
             Spacer(modifier = Modifier.height(12.dp))
 
+            // Блок ввода дней дежурства / Варандей
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                OutlinedTextField(
+                    value = dutyDaysInput,
+                    onValueChange = onDutyDaysChange,
+                    label = { Text("Дней дежурства (Варандей)") },
+                    placeholder = { Text("0") },
+                    modifier = Modifier.width(180.dp),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
+
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("За дежурства:", fontSize = 12.sp)
+                    Text(
+                        text = "$dutyPay ₽",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f))
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Статистика налета
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -218,7 +271,7 @@ fun SummaryCard(summary: FlightSummary) {
                     Text(
                         text = "${totalHours}ч ${totalMins}м",
                         fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp
+                        fontSize = 15.sp
                     )
                 }
                 Column {
@@ -226,7 +279,7 @@ fun SummaryCard(summary: FlightSummary) {
                     Text(
                         text = "${landHours}ч ${landMins}м",
                         fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp
+                        fontSize = 15.sp
                     )
                 }
                 Column {
@@ -234,7 +287,7 @@ fun SummaryCard(summary: FlightSummary) {
                     Text(
                         text = "${summary.totalFlightDays} дн.",
                         fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp
+                        fontSize = 15.sp
                     )
                 }
             }
