@@ -70,7 +70,7 @@ val currentTariff = rawTariff ?: TariffEntity()
                                 currentTariff = currentTariff,
                                 onSaveTariff = { updatedTariff ->
                                     lifecycleScope.launch {
-                                        db.tariffDao().insertOrUpdate(updatedTariff)
+                                        db.tariffDao().saveTariff(updatedTariff) // <-- используем saveTariff вместо insertOrUpdate
                                         currentScreen = "main"
                                     }
                                 }
