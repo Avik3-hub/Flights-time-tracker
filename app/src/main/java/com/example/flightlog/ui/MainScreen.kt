@@ -338,25 +338,24 @@ fun FlightRowItem(flight: FlightEntity, onDelete: () -> Unit) {
         }
     }
 }
-// --- Вспомогательные функции перевода минут в форматированную строку ---
-
-// 1. Обычная функция (для вызова вида minutesToHoursAndMinutes(totalMinutes))
-fun minutesToHoursAndMinutes(minutes: Int?): String {
-    val mins = minutes ?: 0
-    val hours = mins / 60
-    val remainderMins = mins % 60
-    return String.format("%d ч %02d мин", hours, remainderMins)
+// Универсальные функции перевода минут в формат "ЧЧ:ММ" для любых типов чисел
+fun Number?.minutesToHoursAndMinutes(): String {
+    val totalMinutes = this?.toInt() ?: 0
+    val hours = totalMinutes / 60
+    val minutes = totalMinutes % 60
+    return String.format("%02d:%02d", hours, minutes)
 }
 
-fun minutesToHoursAndMinutes(minutes: Long?): String {
-    return minutesToHoursAndMinutes(minutes?.toInt())
-}
-
-// 2. Функции-расширения (для вызова вида totalMinutes.minutesToHoursAndMinutes())
 fun Int?.minutesToHoursAndMinutes(): String {
-    return com.example.flightlog.ui.minutesToHoursAndMinutes(this)
+    val totalMinutes = this ?: 0
+    val hours = totalMinutes / 60
+    val minutes = totalMinutes % 60
+    return String.format("%02d:%02d", hours, minutes)
 }
 
 fun Long?.minutesToHoursAndMinutes(): String {
-    return com.example.flightlog.ui.minutesToHoursAndMinutes(this)
+    val totalMinutes = (this ?: 0L).toInt()
+    val hours = totalMinutes / 60
+    val minutes = totalMinutes % 60
+    return String.format("%02d:%02d", hours, minutes)
 }
