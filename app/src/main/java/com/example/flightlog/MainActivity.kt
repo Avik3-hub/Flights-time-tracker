@@ -22,8 +22,8 @@ class MainActivity : ComponentActivity() {
             FlightLogTheme {
                 // Подписываемся на данные из базы в реальном времени
                 val flights by db.flightDao().getAllFlights().collectAsState(initial = emptyList())
-                val tariff by db.tariffDao().getTariffFlow().collectAsState(initial = com.example.flightlog.data.db.TariffEntity())
-
+                val rawTariff by db.tariffDao().getTariffFlow().collectAsState(initial = null)
+val tariff = rawTariff ?: com.example.flightlog.data.db.TariffEntity()
                 MainScreen(
                     flights = flights,
                     tariff = tariff,
