@@ -33,6 +33,9 @@ interface TariffDao {
     @Query("SELECT * FROM tariff_config WHERE id = 1 LIMIT 1")
     fun getTariff(): Flow<TariffEntity?>
 
+    // Алиас для совместимости с вызовами getTariffFlow() в UI
+    fun getTariffFlow(): Flow<TariffEntity?> = getTariff()
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveTariff(tariff: TariffEntity)
 }
