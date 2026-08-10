@@ -25,9 +25,12 @@ import com.example.flightlog.domain.MonthlyReport
 @Composable
 fun MainScreen(
     flights: List<FlightEntity>,
-    tariff: TariffEntity,
+    dutyRecords: List<DutyEntity>,
+    tariff: TariffEntity, // <--- Обязательно добавьте этот параметр сюда
     onAddFlight: (FlightEntity) -> Unit,
-    onDeleteFlight: (FlightEntity) -> Unit
+    onDeleteFlight: (Long) -> Unit,
+    onSaveDuty: (DutyEntity) -> Unit,
+    onSettingsClick: () -> Unit
 ) {
     // Поля ввода для полета
     var aircraftNumber by remember { mutableStateOf("") }
@@ -51,7 +54,15 @@ fun MainScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Учет налета и командировок", fontWeight = FontWeight.Bold) },
+                title = { Text("Счетчик налета") },
+                actions = {
+                    IconButton(onClick = onSettingsClick) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Настройки тарифов"
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
