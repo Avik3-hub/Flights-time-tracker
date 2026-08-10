@@ -3,7 +3,9 @@ package com.example.flightlog
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.runtime.*
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import com.example.flightlog.data.db.AppDatabase
 import com.example.flightlog.data.db.TariffEntity
 import com.example.flightlog.ui.MainScreen
