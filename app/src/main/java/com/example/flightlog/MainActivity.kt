@@ -11,29 +11,28 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.lifecycleScope
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.lifecycleScope
 import com.example.flightlog.data.db.AppDatabase
 import com.example.flightlog.data.db.TariffEntity
 import com.example.flightlog.ui.MainScreen
 import com.example.flightlog.ui.SettingsScreen
-import com.example.flightlog.ui.theme.FlightLogTheme
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val db = AppDatabase.getDatabase(applicationContext)
+        val db = AppDatabase.getDatabase(this)
 
         setContent {
-            FlightLogTheme {
+            MaterialTheme {
                 var currentScreen by remember { mutableStateOf("main") }
 
-                val rawTariff by db.tariffDao().getTariff().collectAsState(initial = null)
-val currentTariff = rawTariff ?: TariffEntity()
                 val flights by db.flightDao().getAllFlights().collectAsState(initial = emptyList())
                 val dutyRecords by db.dutyDao().getAllDuties().collectAsState(initial = emptyList())
+                val rawTariff by db.tariffDao().getTariff().collectAsState(initial = TariffEntity())
+                val currentTariff = rawTariff ?: TariffEntity()
 
                 Surface(
                     modifier = Modifier.fillMaxSize(),
@@ -57,7 +56,7 @@ val currentTariff = rawTariff ?: TariffEntity()
                                 },
                                 onSaveDuty = { duty ->
                                     lifecycleScope.launch {
-                                        db.dutyDao().insertOrUpdate(duty)
+                                        db.dutyDao().saveDuty(duty)
                                     }
                                 },
                                 onSettingsClick = {
@@ -70,7 +69,7 @@ val currentTariff = rawTariff ?: TariffEntity()
                                 currentTariff = currentTariff,
                                 onSaveTariff = { updatedTariff ->
                                     lifecycleScope.launch {
-                                        db.tariffDao().saveTariff(updatedTariff) // <-- используем saveTariff вместо insertOrUpdate
+                                        db.tariffDao().saveTariff(updatedTariff)
                                         currentScreen = "main"
                                     }
                                 }
