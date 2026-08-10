@@ -25,8 +25,8 @@ data class DutyEntity(
 @Entity(tableName = "tariff_config")
 data class TariffEntity(
     @PrimaryKey val id: Int = 1,
-    val landHourRate: Double = 879.57,
-    val seaHourRate: Double = 0.0,
+    val landHourlyRate: Double = 879.57,
+    val seaHourlyRate: Double = 0.0,
     val dutyDayRate: Double = 0.0,
     val flightDayRate: Double = 0.0
 )
