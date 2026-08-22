@@ -1,12 +1,16 @@
 package com.example.flightlog.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,36 +25,26 @@ import com.example.flightlog.data.db.FlightEntity
 import com.example.flightlog.data.db.TariffEntity
 import com.example.flightlog.domain.CalculationEngine
 import com.example.flightlog.domain.MonthlyReport
+import java.text.SimpleDateFormat
+import java.util.*
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun MainScreen(
     flights: List<FlightEntity>,
     dutyRecords: List<DutyEntity>,
-    tariff: TariffEntity, // <--- Обязательно добавьте этот параметр сюда
+    tariff: TariffEntity,
     onAddFlight: (FlightEntity) -> Unit,
+    onUpdateFlight: (FlightEntity) -> Unit,
     onDeleteFlight: (Long) -> Unit,
     onSaveDuty: (DutyEntity) -> Unit,
     onSettingsClick: () -> Unit
 ) {
-    // Поля ввода для полета
-    var aircraftNumber by remember { mutableStateOf("") }
-    var captain by remember { mutableStateOf("") }
-    var missionNumber by remember { mutableStateOf("") }
-    var landTimeInput by remember { mutableStateOf("") }
-    var seaTimeInput by remember { mutableStateOf("") }
+    val pagerState = rememberPagerState(pageCount = { 2 })
+    val coroutineScope = rememberCoroutineScope()
 
-    // Поле ввода дней дежурства / командировки (Варандей)
-    var dutyDaysInput by remember { mutableStateOf("") }
-    val dutyDays = dutyDaysInput.toIntOrNull() ?: 0
-
-    val dutyEntity = remember(dutyDays) {
-        DutyEntity(month = 0, year = 0, dutyDays = dutyDays)
-    }
-
-    val monthlyReport: MonthlyReport = remember(flights, dutyEntity, tariff) {
-        CalculationEngine.calculateMonthlyReport(flights, dutyEntity, tariff)
-    }
+    // Всплывающий диалог для редактирования
+    var flightToEdit by remember { mutableStateOf<FlightEntity?>(null) }
 
     Scaffold(
         topBar = {
@@ -71,147 +65,382 @@ fun MainScreen(
             )
         }
     ) { innerPadding ->
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // 1. Сводная карточка отчета
-            item {
-                SummaryCard(
-                    report = monthlyReport,
-                    dutyDaysInput = dutyDaysInput,
-                    onDutyDaysChange = { dutyDaysInput = it }
+            // Табы для переключения экранов
+            TabRow(selectedTabIndex = pagerState.currentPage) {
+                Tab(
+                    selected = pagerState.currentPage == 0,
+                    onClick = {
+                        kotlinx.coroutines.launch { pagerState.animateScrollToPage(0) }
+                    },
+                    text = { Text("Ввод полета", fontWeight = FontWeight.Bold) }
+                )
+                Tab(
+                    selected = pagerState.currentPage == 1,
+                    onClick = {
+                        kotlinx.coroutines.launch { pagerState.animateScrollToPage(1) }
+                    },
+                    text = { Text("Статистика и история", fontWeight = FontWeight.Bold) }
                 )
             }
 
-            // 2. Форма добавления нового полета
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize()
+            ) { page ->
+                when (page) {
+                    0 -> InputTabScreen(
+                        onAddFlight = onAddFlight,
+                        onSaveDuty = onSaveDuty
                     )
+                    1 -> StatisticsTabScreen(
+                        flights = flights,
+                        tariff = tariff,
+                        onEditFlight = { flightToEdit = it },
+                        onDeleteFlight = onDeleteFlight
+                    )
+                }
+            }
+        }
+    }
+
+    // Диалог редактирования полета
+    flightToEdit?.let { flight ->
+        EditFlightDialog(
+            flight = flight,
+            onDismiss = { flightToEdit = null },
+            onSave = { updatedFlight ->
+                onUpdateFlight(updatedFlight)
+                flightToEdit = null
+            }
+        )
+    }
+}
+
+@Composable
+fun InputTabScreen(
+    onAddFlight: (FlightEntity) -> Unit,
+    onSaveDuty: (DutyEntity) -> Unit
+) {
+    var aircraftNumber by remember { mutableStateOf("") }
+    var captain by remember { mutableStateOf("") }
+    var missionNumber by remember { mutableStateOf("") }
+    var landTimeInput by remember { mutableStateOf("") }
+    var seaTimeInput by remember { mutableStateOf("") }
+    var dutyDaysInput by remember { mutableStateOf("") }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // 1. Блок добавления полета (ВВЕРХУ)
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    Text(
+                        text = "Новая запись полета",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(
-                            text = "Новая запись полета",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            OutlinedTextField(
-                                value = aircraftNumber,
-                                onValueChange = { aircraftNumber = it },
-                                label = { Text("№ ВС") },
-                                modifier = Modifier.weight(1f),
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                            )
-                            OutlinedTextField(
-                                value = missionNumber,
-                                onValueChange = { missionNumber = it },
-                                label = { Text("Задание") },
-                                modifier = Modifier.weight(1f),
-                                singleLine = true
-                            )
-                        }
-
                         OutlinedTextField(
-                            value = captain,
-                            onValueChange = { captain = it },
-                            label = { Text("ФИО КВС") },
-                            modifier = Modifier.fillMaxWidth(),
+                            value = aircraftNumber,
+                            onValueChange = { aircraftNumber = it },
+                            label = { Text("№ ВС") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                        OutlinedTextField(
+                            value = missionNumber,
+                            onValueChange = { missionNumber = it },
+                            label = { Text("Задание") },
+                            modifier = Modifier.weight(1f),
                             singleLine = true
                         )
-
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            OutlinedTextField(
-                                value = landTimeInput,
-                                onValueChange = { landTimeInput = it },
-                                label = { Text("Земля (ЧЧ:ММ)") },
-                                placeholder = { Text("03:35") },
-                                modifier = Modifier.weight(1f),
-                                singleLine = true
-                            )
-                            OutlinedTextField(
-                                value = seaTimeInput,
-                                onValueChange = { seaTimeInput = it },
-                                label = { Text("Море (ЧЧ:ММ)") },
-                                placeholder = { Text("00:00") },
-                                modifier = Modifier.weight(1f),
-                                singleLine = true
-                            )
-                        }
-
-                        Button(
-                            onClick = {
-                                if (aircraftNumber.isNotBlank()) {
-                                    val landMins = parseTimeStringToMinutes(landTimeInput)
-                                    val seaMins = parseTimeStringToMinutes(seaTimeInput)
-                                    
-                                    onAddFlight(
-                                        FlightEntity(
-                                            dateTimestamp = System.currentTimeMillis(),
-                                            aircraftNumber = aircraftNumber,
-                                            captain = captain,
-                                            missionNumber = missionNumber.ifBlank { null },
-                                            landTimeMinutes = landMins,
-                                            seaTimeMinutes = seaMins
-                                        )
+                    }
+                    OutlinedTextField(
+                        value = captain,
+                        onValueChange = { captain = it },
+                        label = { Text("ФИО КВС") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        OutlinedTextField(
+                            value = landTimeInput,
+                            onValueChange = { landTimeInput = it },
+                            label = { Text("Земля (ЧЧ:ММ)") },
+                            placeholder = { Text("03:35") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = seaTimeInput,
+                            onValueChange = { seaTimeInput = it },
+                            label = { Text("Море (ЧЧ:ММ)") },
+                            placeholder = { Text("00:00") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
+                        )
+                    }
+                    Button(
+                        onClick = {
+                            if (aircraftNumber.isNotBlank()) {
+                                onAddFlight(
+                                    FlightEntity(
+                                        dateTimestamp = System.currentTimeMillis(),
+                                        aircraftNumber = aircraftNumber,
+                                        captain = captain,
+                                        missionNumber = missionNumber.ifBlank { null },
+                                        landTimeMinutes = parseTimeStringToMinutes(landTimeInput),
+                                        seaTimeMinutes = parseTimeStringToMinutes(seaTimeInput)
                                     )
-                                    aircraftNumber = ""
-                                    captain = ""
-                                    missionNumber = ""
-                                    landTimeInput = ""
-                                    seaTimeInput = ""
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Сохранить полет")
-                        }
+                                )
+                                aircraftNumber = ""
+                                captain = ""
+                                missionNumber = ""
+                                landTimeInput = ""
+                                seaTimeInput = ""
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Сохранить полет")
                     }
                 }
             }
+        }
 
-            // 3. Заголовок списка
-            item {
-                Text(
-                    text = "История полетов",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+        // 2. Блок дежурств (Варандей)
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer
                 )
-            }
-
-            // 4. Список полетов
-            items(flights) { flight ->
-                FlightRowItem(flight = flight, onDelete = { onDeleteFlight(flight.id) })
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = "Дежурство (Варандей)",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        OutlinedTextField(
+                            value = dutyDaysInput,
+                            onValueChange = { dutyDaysInput = it },
+                            label = { Text("Дней дежурства") },
+                            placeholder = { Text("0") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Button(
+                            onClick = {
+                                val days = dutyDaysInput.toIntOrNull() ?: 0
+                                val cal = Calendar.getInstance()
+                                onSaveDuty(
+                                    DutyEntity(
+                                        month = cal.get(Calendar.MONTH) + 1,
+                                        year = cal.get(Calendar.YEAR),
+                                        dutyDays = days
+                                    )
+                                )
+                            }
+                        ) {
+                            Text("Сохранить")
+                        }
+                    }
+                }
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SummaryCard(
-    report: MonthlyReport,
-    dutyDaysInput: String,
-    onDutyDaysChange: (String) -> Unit
+fun StatisticsTabScreen(
+    flights: List<FlightEntity>,
+    tariff: TariffEntity,
+    onEditFlight: (FlightEntity) -> Unit,
+    onDeleteFlight: (Long) -> Unit
 ) {
+    val currentCalendar = remember { Calendar.getInstance() }
+    var selectedYear by remember { mutableIntStateOf(currentCalendar.get(Calendar.YEAR)) }
+    var selectedMonth by remember { mutableIntStateOf(currentCalendar.get(Calendar.MONTH) + 1) } // 0 - За весь год
+
+    val yearsList = remember(flights) {
+        val years = flights.map {
+            Calendar.getInstance().apply { timeInMillis = it.dateTimestamp }.get(Calendar.YEAR)
+        }.distinct().sortedDescending().toMutableList()
+        val currYr = Calendar.getInstance().get(Calendar.YEAR)
+        if (!years.contains(currYr)) years.add(0, currYr)
+        years
+    }
+
+    val monthNames = listOf(
+        "Весь год", "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+        "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
+    )
+
+    // Фильтрация полетов по выбранному году и месяцу
+    val filteredFlights = remember(flights, selectedYear, selectedMonth) {
+        flights.filter { flight ->
+            val cal = Calendar.getInstance().apply { timeInMillis = flight.dateTimestamp }
+            val yearMatches = cal.get(Calendar.YEAR) == selectedYear
+            val monthMatches = if (selectedMonth == 0) true else (cal.get(Calendar.MONTH) + 1) == selectedMonth
+            yearMatches && monthMatches
+        }
+    }
+
+    val report: MonthlyReport = remember(filteredFlights, tariff) {
+        CalculationEngine.calculateMonthlyReport(
+            filteredFlights,
+            DutyEntity(month = selectedMonth, year = selectedYear, dutyDays = 0),
+            tariff
+        )
+    }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Выбор временного периода (Год и Месяц)
+        item {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text("Фильтр периода", style = MaterialTheme.typography.labelLarge)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Селектор Года
+                        var yearExpanded by remember { mutableStateOf(false) }
+                        ExposedDropdownMenuBox(
+                            expanded = yearExpanded,
+                            onExpandedChange = { yearExpanded = !yearExpanded },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            OutlinedTextField(
+                                value = selectedYear.toString(),
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Год") },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = yearExpanded) },
+                                modifier = Modifier.menuAnchor()
+                            )
+                            ExposedDropdownMenu(
+                                expanded = yearExpanded,
+                                onDismissRequest = { yearExpanded = false }
+                            ) {
+                                yearsList.forEach { year ->
+                                    DropdownMenuItem(
+                                        text = { Text(year.toString()) },
+                                        onClick = {
+                                            selectedYear = year
+                                            yearExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        // Селектор Месяца
+                        var monthExpanded by remember { mutableStateOf(false) }
+                        ExposedDropdownMenuBox(
+                            expanded = monthExpanded,
+                            onExpandedChange = { monthExpanded = !monthExpanded },
+                            modifier = Modifier.weight(1.3f)
+                        ) {
+                            OutlinedTextField(
+                                value = monthNames[selectedMonth],
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Месяц") },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = monthExpanded) },
+                                modifier = Modifier.menuAnchor()
+                            )
+                            ExposedDropdownMenu(
+                                expanded = monthExpanded,
+                                onDismissRequest = { monthExpanded = false }
+                            ) {
+                                monthNames.forEachIndexed { index, monthName ->
+                                    DropdownMenuItem(
+                                        text = { Text(monthName) },
+                                        onClick = {
+                                            selectedMonth = index
+                                            monthExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Карточка сводки
+        item {
+            SummaryCard(report = report)
+        }
+
+        // Заголовок списка
+        item {
+            Text(
+                text = "Полеты за выбранный период (${filteredFlights.size})",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        // Список полетов за выбранный период
+        items(filteredFlights) { flight ->
+            FlightRowItem(
+                flight = flight,
+                onEdit = { onEditFlight(flight) },
+                onDelete = { onDeleteFlight(flight.id) }
+            )
+        }
+    }
+}
+
+@Composable
+fun SummaryCard(report: MonthlyReport) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -220,7 +449,7 @@ fun SummaryCard(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "Общая выплата за месяц",
+                text = "Итоговая выплата",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
             )
@@ -230,42 +459,10 @@ fun SummaryCard(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
-
             Spacer(modifier = Modifier.height(12.dp))
             HorizontalDivider(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f))
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Блок ввода дней дежурства / Варандей
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                OutlinedTextField(
-                    value = dutyDaysInput,
-                    onValueChange = onDutyDaysChange,
-                    label = { Text("Дней дежурства (Варандей)") },
-                    placeholder = { Text("0") },
-                    modifier = Modifier.width(180.dp),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                )
-
-                Column(horizontalAlignment = Alignment.End) {
-                    Text("За дежурства:", fontSize = 12.sp)
-                    Text(
-                        text = "${String.format("%.2f", report.dutyPayment)} ₽",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f))
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Статистика налета
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -275,15 +472,15 @@ fun SummaryCard(
                     Text(
                         text = report.totalMinutes.minutesToHoursAndMinutes(),
                         fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp
+                        fontSize = 14.sp
                     )
                 }
                 Column {
-                    Text("Налет Земля", fontSize = 12.sp)
+                    Text("Земля / Море", fontSize = 12.sp)
                     Text(
-                        text = report.totalLandMinutes.minutesToHoursAndMinutes(),
+                        text = "${report.totalLandMinutes.minutesToHoursAndMinutes()} / ${report.totalSeaMinutes.minutesToHoursAndMinutes()}",
                         fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp
+                        fontSize = 14.sp
                     )
                 }
                 Column {
@@ -291,7 +488,7 @@ fun SummaryCard(
                     Text(
                         text = "${report.totalFlightDays} дн.",
                         fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp
+                        fontSize = 14.sp
                     )
                 }
             }
@@ -300,7 +497,14 @@ fun SummaryCard(
 }
 
 @Composable
-fun FlightRowItem(flight: FlightEntity, onDelete: () -> Unit) {
+fun FlightRowItem(
+    flight: FlightEntity,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val dateFormat = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()) }
+    val dateStr = dateFormat.format(Date(flight.dateTimestamp))
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -315,9 +519,9 @@ fun FlightRowItem(flight: FlightEntity, onDelete: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "№ ВС: ${flight.aircraftNumber} ${flight.missionNumber?.let { "($it)" } ?: ""}",
+                    text = "$dateStr | № ВС: ${flight.aircraftNumber} ${flight.missionNumber?.let { "($it)" } ?: ""}",
                     fontWeight = FontWeight.Bold
                 )
                 Text(
@@ -325,23 +529,110 @@ fun FlightRowItem(flight: FlightEntity, onDelete: () -> Unit) {
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
-                    text = "Земля: ${flight.landTimeMinutes.minutesToHoursAndMinutes()}",
+                    text = "Земля: ${flight.landTimeMinutes.minutesToHoursAndMinutes()} | Море: ${flight.seaTimeMinutes.minutesToHoursAndMinutes()}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary
                 )
             }
-            IconButton(onClick = onDelete) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Удалить",
-                    tint = MaterialTheme.colorScheme.error
-                )
+            Row {
+                IconButton(onClick = onEdit) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Редактировать",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Удалить",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
             }
         }
     }
 }
 
-// Универсальные функции перевода минут в формат строки
+@Composable
+fun EditFlightDialog(
+    flight: FlightEntity,
+    onDismiss: () -> Unit,
+    onSave: (FlightEntity) -> Unit
+) {
+    var aircraftNumber by remember { mutableStateOf(flight.aircraftNumber) }
+    var captain by remember { mutableStateOf(flight.captain) }
+    var missionNumber by remember { mutableStateOf(flight.missionNumber ?: "") }
+    var landTimeInput by remember { mutableStateOf(minutesToHoursString(flight.landTimeMinutes)) }
+    var seaTimeInput by remember { mutableStateOf(minutesToHoursString(flight.seaTimeMinutes)) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Редактирование полета") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = aircraftNumber,
+                    onValueChange = { aircraftNumber = it },
+                    label = { Text("№ ВС") },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = missionNumber,
+                    onValueChange = { missionNumber = it },
+                    label = { Text("Задание") },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = captain,
+                    onValueChange = { captain = it },
+                    label = { Text("ФИО КВС") },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = landTimeInput,
+                    onValueChange = { landTimeInput = it },
+                    label = { Text("Земля (ЧЧ:ММ)") },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = seaTimeInput,
+                    onValueChange = { seaTimeInput = it },
+                    label = { Text("Море (ЧЧ:ММ)") },
+                    singleLine = true
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val updated = flight.copy(
+                        aircraftNumber = aircraftNumber,
+                        captain = captain,
+                        missionNumber = missionNumber.ifBlank { null },
+                        landTimeMinutes = parseTimeStringToMinutes(landTimeInput),
+                        seaTimeMinutes = parseTimeStringToMinutes(seaTimeInput)
+                    )
+                    onSave(updated)
+                }
+            ) {
+                Text("Сохранить")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Отмена")
+            }
+        }
+    )
+}
+
+fun minutesToHoursString(totalMinutes: Int): String {
+    val h = totalMinutes / 60
+    val m = totalMinutes % 60
+    return String.format("%02d:%02d", h, m)
+}
+
 fun Number?.minutesToHoursAndMinutes(): String {
     val totalMinutes = this?.toInt() ?: 0
     val hours = totalMinutes / 60
@@ -349,21 +640,6 @@ fun Number?.minutesToHoursAndMinutes(): String {
     return String.format("%d ч %02d мин", hours, minutes)
 }
 
-fun Int?.minutesToHoursAndMinutes(): String {
-    val totalMinutes = this ?: 0
-    val hours = totalMinutes / 60
-    val minutes = totalMinutes % 60
-    return String.format("%d ч %02d мин", hours, minutes)
-}
-
-fun Long?.minutesToHoursAndMinutes(): String {
-    val totalMinutes = (this ?: 0L).toInt()
-    val hours = totalMinutes / 60
-    val minutes = totalMinutes % 60
-    return String.format("%d ч %02d мин", hours, minutes)
-}
-
-// Парсинг строки "ЧЧ:ММ" или "ЧЧ" в общее число минут
 fun parseTimeStringToMinutes(timeString: String): Int {
     if (timeString.isBlank()) return 0
     val parts = timeString.split(":")
