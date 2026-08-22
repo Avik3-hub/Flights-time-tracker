@@ -6,14 +6,14 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [FlightEntity::class, DutyEntity::class, TariffEntity::class],
-    version = 1,
-    exportSchema = false
+    entities = [FlightEntity::class, DutyEntity::class, TariffEntity::class], // Добавлен TariffEntity
+    version = 2 // Увеличьте номер версии БД
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun flightDao(): FlightDao
-    abstract fun tariffDao(): TariffDao
     abstract fun dutyDao(): DutyDao
+    abstract fun tariffDao(): TariffDao // Добавлен новый DAO
+}
 
     companion object {
         @Volatile
