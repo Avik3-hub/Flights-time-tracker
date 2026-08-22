@@ -5,46 +5,50 @@ import com.example.flightlog.data.db.FlightEntity
 import com.example.flightlog.data.db.TariffEntity
 
 data class MonthlyReport(
-    val totalLandMinutes: Int = 0,
-    val totalSeaMinutes: Int = 0,
-    val totalFlightDays: Int = 0,
-    val totalDutyDays: Int = 0,
-    val landPayment: Double = 0.0,
-    val seaPayment: Double = 0.0,
-    val dutyPayment: Double = 0.0,
-    val totalPayment: Double = 0.0
-) {
-    val totalMinutes: Int get() = totalLandMinutes + totalSeaMinutes
-}
+    val totalLandMinutes: Int,
+    val totalSeaMinutes: Int,
+    val totalMinutes: Int,
+    val totalFlightDays: Int,
+    val landPayment: Double,
+    val seaPayment: Double,
+    val dutyPayment: Double,
+    val totalPayment: Double
+)
 
 object CalculationEngine {
+    private const val TAX_FACTOR = 0.87 // Учет вычета 13% НДФЛ
+
     fun calculateMonthlyReport(
         flights: List<FlightEntity>,
-        duty: DutyEntity?,
-        tariff: TariffEntity?
+        dutyRecord: DutyEntity,
+        tariff: TariffEntity
     ): MonthlyReport {
-        val t = tariff ?: TariffEntity()
-        val totalLand = flights.sumOf { it.landTimeMinutes }
-        val totalSea = flights.sumOf { it.seaTimeMinutes }
-        val flightDays = flights.map { it.dateTimestamp }.distinct().size
-        val dutyDays = duty?.dutyDays ?: 0
+        val totalLandMinutes = flights.sumOf { it.landTimeMinutes }
+        val totalSeaMinutes = flights.sumOf { it.seaTimeMinutes }
+        val totalMinutes = totalLandMinutes + totalSeaMinutes
 
-        val landPay = (totalLand / 60.0) * t.landHourlyRate
-        val seaPay = (totalSea / 60.0) * t.seaHourlyRate
-        val dutyPay = dutyDays * t.dutyDayRate
-        val flightPay = flightDays * t.flightDayRate
+        val totalFlightDays = flights.map { it.dateTimestamp }.distinct().size
 
-        val total = landPay + seaPay + dutyPay + flightPay
+        // Чистая ставка после вычета 13%
+        val netLandRate = tariff.landHourRate * TAX_FACTOR
+        val netSeaRate = tariff.seaHourRate * TAX_FACTOR
+        val netDutyRate = tariff.dutyDayRate * TAX_FACTOR
+
+        val landPayment = (totalLandMinutes / 60.0) * netLandRate
+        val seaPayment = (totalSeaMinutes / 60.0) * netSeaRate
+        val dutyPayment = dutyRecord.dutyDays * netDutyRate
+
+        val totalPayment = landPayment + seaPayment + dutyPayment
 
         return MonthlyReport(
-            totalLandMinutes = totalLand,
-            totalSeaMinutes = totalSea,
-            totalFlightDays = flightDays,
-            totalDutyDays = dutyDays,
-            landPayment = landPay,
-            seaPayment = seaPay,
-            dutyPayment = dutyPay,
-            totalPayment = total
+            totalLandMinutes = totalLandMinutes,
+            totalSeaMinutes = totalSeaMinutes,
+            totalMinutes = totalMinutes,
+            totalFlightDays = totalFlightDays,
+            landPayment = landPayment,
+            seaPayment = seaPayment,
+            dutyPayment = dutyPayment,
+            totalPayment = totalPayment
         )
     }
 }
