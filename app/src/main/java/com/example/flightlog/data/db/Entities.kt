@@ -24,9 +24,10 @@ data class DutyEntity(
 
 @Entity(tableName = "tariff_config")
 data class TariffEntity(
-    @PrimaryKey val id: Int = 1,
+    @PrimaryKey(autoGenerate = true) val id: Long = 0, // Изменено: теперь генерируется автоматически для сохранения истории
+    val effectiveFromYear: Int,                        // Год ввода тарифа (например, 2025)
+    val effectiveFromMonth: Int,                       // Месяц ввода тарифа (1-12, например 7 для июля)
     val landHourlyRate: Double = 879.57,
     val seaHourlyRate: Double = 0.0,
-    val dutyDayRate: Double = 0.0,
-    val flightDayRate: Double = 0.0
+    val dutyDayRate: Double = 0.0
 )
