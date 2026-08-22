@@ -37,6 +37,8 @@ fun MainScreen(
     flights: List<FlightEntity>,
     dutyRecords: List<DutyEntity>,
     tariff: TariffEntity,
+    isDarkTheme: Boolean,
+    onToggleTheme: () -> Unit,
     onAddFlight: (FlightEntity) -> Unit,
     onUpdateFlight: (FlightEntity) -> Unit,
     onDeleteFlight: (Long) -> Unit,
@@ -47,17 +49,42 @@ fun MainScreen(
     val coroutineScope = rememberCoroutineScope()
 
     var flightToEdit by remember { mutableStateOf<FlightEntity?>(null) }
+    var menuExpanded by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Счетчик налета") },
                 actions = {
-                    IconButton(onClick = onSettingsClick) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "Настройки тарифов"
-                        )
+                    Box {
+                        IconButton(onClick = { menuExpanded = true }) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "Настройки"
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Тарифы") },
+                                onClick = {
+                                    menuExpanded = false
+                                    onSettingsClick()
+                                }
+                            )
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { 
+                                    Text(if (isDarkTheme) "Светлая тема" else "Темная тема") 
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    onToggleTheme()
+                                }
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -696,7 +723,7 @@ fun SummaryCard(report: MonthlyReport, dutyDays: Int) {
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "Итоговая выплата",
+                text = "Итоговая выплата (с вычетом 13% НДФЛ)",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
             )
