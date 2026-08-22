@@ -27,6 +27,10 @@ interface FlightDao {
 
     @Query("DELETE FROM flight_records WHERE id = :id")
     suspend fun deleteFlight(id: Long)
+
+    // Синоним для вызова из MainActivity
+    @Query("DELETE FROM flight_records WHERE id = :id")
+    suspend fun deleteFlightById(id: Long)
 }
 
 @Dao
@@ -34,8 +38,14 @@ interface DutyDao {
     @Query("SELECT * FROM duty_records")
     fun getAllDuties(): Flow<List<DutyEntity>>
 
+    @Query("SELECT * FROM duty_records")
+    fun getAllDutyRecords(): Flow<List<DutyEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveDuty(duty: DutyEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertDuty(duty: DutyEntity)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdate(duty: DutyEntity)
@@ -43,15 +53,12 @@ interface DutyDao {
 
 @Dao
 interface TariffDao {
-    // Получение истории всех тарифов
     @Query("SELECT * FROM tariff_config ORDER BY effectiveFromYear DESC, effectiveFromMonth DESC")
     fun getAllTariffs(): Flow<List<TariffEntity>>
 
-    // Добавление или обновление тарифа
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTariff(tariff: TariffEntity)
 
-    // Удаление тарифа при необходимости
     @Query("DELETE FROM tariff_config WHERE id = :id")
     suspend fun deleteTariff(id: Long)
 }
