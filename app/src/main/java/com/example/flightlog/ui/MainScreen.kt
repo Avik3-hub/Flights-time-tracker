@@ -561,7 +561,7 @@ fun TimeSelectionDialog(
 fun StatisticsTabScreen(
     flights: List<FlightEntity>,
     dutyRecords: List<DutyEntity>,
-    tariff: TariffEntity,
+    tariffs: List<TariffEntity>, // Передаем список всех тарифов вместо одного
     onEditFlight: (FlightEntity) -> Unit,
     onDeleteFlight: (Long) -> Unit
 ) {
@@ -604,13 +604,27 @@ fun StatisticsTabScreen(
         }
     }
 
-    val report: MonthlyReport = remember(filteredFlights, selectedDuty, tariff) {
-        CalculationEngine.calculateMonthlyReport(
-            filteredFlights,
-            selectedDuty,
-            tariff
+    // 1. Полноценная замена блока расчета в StatisticsTabScreen:
+val activeTariff = remember(tariffs, selectedYear, selectedMonth) {
+    val monthForSearch = if (selectedMonth == 0) 12 else selectedMonth
+    CalculationEngine.getActiveTariff(tariffs, selectedYear, monthForSearch)
+        ?: TariffEntity(
+            effectiveFromYear = 2020,
+            effectiveFromMonth = 1,
+            landHourlyRate = 0.0,
+            seaHourlyRate = 0.0,
+            dutyDayRate = 0.0
         )
-    }
+}
+
+val report: MonthlyReport = remember(filteredFlights, selectedDuty, activeTariff) {
+    CalculationEngine.calculateMonthlyReport(
+        filteredFlights,
+        selectedDuty,
+        activeTariff
+    )
+}
+
 
     LazyColumn(
         modifier = Modifier
