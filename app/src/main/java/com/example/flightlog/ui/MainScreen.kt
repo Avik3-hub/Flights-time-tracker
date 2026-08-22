@@ -44,7 +44,6 @@ fun MainScreen(
     val pagerState = rememberPagerState(pageCount = { 2 })
     val coroutineScope = rememberCoroutineScope()
 
-    // Всплывающий диалог для редактирования
     var flightToEdit by remember { mutableStateOf<FlightEntity?>(null) }
 
     Scaffold(
@@ -71,19 +70,18 @@ fun MainScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // Табы для переключения экранов
             TabRow(selectedTabIndex = pagerState.currentPage) {
                 Tab(
                     selected = pagerState.currentPage == 0,
                     onClick = {
-                        kotlinx.coroutines.launch { pagerState.animateScrollToPage(0) }
+                        coroutineScope.launch { pagerState.animateScrollToPage(0) }
                     },
                     text = { Text("Ввод полета", fontWeight = FontWeight.Bold) }
                 )
                 Tab(
                     selected = pagerState.currentPage == 1,
                     onClick = {
-                        kotlinx.coroutines.launch { pagerState.animateScrollToPage(1) }
+                        coroutineScope.launch { pagerState.animateScrollToPage(1) }
                     },
                     text = { Text("Статистика и история", fontWeight = FontWeight.Bold) }
                 )
@@ -109,7 +107,6 @@ fun MainScreen(
         }
     }
 
-    // Диалог редактирования полета
     flightToEdit?.let { flight ->
         EditFlightDialog(
             flight = flight,
@@ -140,7 +137,6 @@ fun InputTabScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // 1. Блок добавления полета (ВВЕРХУ)
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -235,7 +231,6 @@ fun InputTabScreen(
             }
         }
 
-        // 2. Блок дежурств (Варандей)
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -299,7 +294,7 @@ fun StatisticsTabScreen(
 ) {
     val currentCalendar = remember { Calendar.getInstance() }
     var selectedYear by remember { mutableIntStateOf(currentCalendar.get(Calendar.YEAR)) }
-    var selectedMonth by remember { mutableIntStateOf(currentCalendar.get(Calendar.MONTH) + 1) } // 0 - За весь год
+    var selectedMonth by remember { mutableIntStateOf(currentCalendar.get(Calendar.MONTH) + 1) }
 
     val yearsList = remember(flights) {
         val years = flights.map {
@@ -315,7 +310,6 @@ fun StatisticsTabScreen(
         "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
     )
 
-    // Фильтрация полетов по выбранному году и месяцу
     val filteredFlights = remember(flights, selectedYear, selectedMonth) {
         flights.filter { flight ->
             val cal = Calendar.getInstance().apply { timeInMillis = flight.dateTimestamp }
@@ -339,7 +333,6 @@ fun StatisticsTabScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Выбор временного периода (Год и Месяц)
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(12.dp)) {
@@ -349,7 +342,6 @@ fun StatisticsTabScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // Селектор Года
                         var yearExpanded by remember { mutableStateOf(false) }
                         ExposedDropdownMenuBox(
                             expanded = yearExpanded,
@@ -380,7 +372,6 @@ fun StatisticsTabScreen(
                             }
                         }
 
-                        // Селектор Месяца
                         var monthExpanded by remember { mutableStateOf(false) }
                         ExposedDropdownMenuBox(
                             expanded = monthExpanded,
@@ -415,12 +406,10 @@ fun StatisticsTabScreen(
             }
         }
 
-        // Карточка сводки
         item {
             SummaryCard(report = report)
         }
 
-        // Заголовок списка
         item {
             Text(
                 text = "Полеты за выбранный период (${filteredFlights.size})",
@@ -429,7 +418,6 @@ fun StatisticsTabScreen(
             )
         }
 
-        // Список полетов за выбранный период
         items(filteredFlights) { flight ->
             FlightRowItem(
                 flight = flight,
