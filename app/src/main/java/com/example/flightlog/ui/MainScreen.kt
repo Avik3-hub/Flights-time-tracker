@@ -36,7 +36,7 @@ import java.util.*
 fun MainScreen(
     flights: List<FlightEntity>,
     dutyRecords: List<DutyEntity>,
-    tariff: TariffEntity,
+    tariffs: List<TariffEntity>,
     isDarkTheme: Boolean,
     onToggleTheme: () -> Unit,
     onAddFlight: (FlightEntity) -> Unit,
@@ -130,7 +130,7 @@ fun MainScreen(
                     1 -> StatisticsTabScreen(
                         flights = flights,
                         dutyRecords = dutyRecords,
-                        tariff = tariff,
+                        tariffs = tariffs,
                         onEditFlight = { flightToEdit = it },
                         onDeleteFlight = onDeleteFlight
                     )
@@ -561,7 +561,7 @@ fun TimeSelectionDialog(
 fun StatisticsTabScreen(
     flights: List<FlightEntity>,
     dutyRecords: List<DutyEntity>,
-    tariffs: List<TariffEntity>, // Передаем список всех тарифов вместо одного
+    tariffs: List<TariffEntity>,
     onEditFlight: (FlightEntity) -> Unit,
     onDeleteFlight: (Long) -> Unit
 ) {
@@ -604,27 +604,26 @@ fun StatisticsTabScreen(
         }
     }
 
-    // 1. Полноценная замена блока расчета в StatisticsTabScreen:
-val activeTariff = remember(tariffs, selectedYear, selectedMonth) {
-    val monthForSearch = if (selectedMonth == 0) 12 else selectedMonth
-    CalculationEngine.getActiveTariff(tariffs, selectedYear, monthForSearch)
-        ?: TariffEntity(
-            effectiveFromYear = 2020,
-            effectiveFromMonth = 1,
-            landHourlyRate = 0.0,
-            seaHourlyRate = 0.0,
-            dutyDayRate = 0.0
+    // Подбор действующего тарифа с учетом выбранной даты
+    val activeTariff = remember(tariffs, selectedYear, selectedMonth) {
+        val monthForSearch = if (selectedMonth == 0) 12 else selectedMonth
+        CalculationEngine.getActiveTariff(tariffs, selectedYear, monthForSearch)
+            ?: TariffEntity(
+                effectiveFromYear = 2025,
+                effectiveFromMonth = 1,
+                landHourlyRate = 879.57,
+                seaHourlyRate = 0.0,
+                dutyDayRate = 0.0
+            )
+    }
+
+    val report: MonthlyReport = remember(filteredFlights, selectedDuty, activeTariff) {
+        CalculationEngine.calculateMonthlyReport(
+            filteredFlights,
+            selectedDuty,
+            activeTariff
         )
-}
-
-val report: MonthlyReport = remember(filteredFlights, selectedDuty, activeTariff) {
-    CalculationEngine.calculateMonthlyReport(
-        filteredFlights,
-        selectedDuty,
-        activeTariff
-    )
-}
-
+    }
 
     LazyColumn(
         modifier = Modifier
