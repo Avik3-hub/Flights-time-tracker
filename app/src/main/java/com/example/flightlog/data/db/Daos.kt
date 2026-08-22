@@ -43,24 +43,15 @@ interface DutyDao {
 
 @Dao
 interface TariffDao {
-    @Query("SELECT * FROM tariff_config WHERE id = 1 LIMIT 1")
-    fun getTariff(): Flow<TariffEntity?>
-
-    @Query("SELECT * FROM tariff_config WHERE id = 1 LIMIT 1")
-    fun getTariffFlow(): Flow<TariffEntity?>
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun saveTariff(tariff: TariffEntity)
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertOrUpdate(tariff: TariffEntity)
-}
-
-@Dao
-interface TariffDao {
-    @Query("SELECT * FROM tariffs ORDER BY effectiveFromYear DESC, effectiveFromMonth DESC")
+    // Получение истории всех тарифов
+    @Query("SELECT * FROM tariff_config ORDER BY effectiveFromYear DESC, effectiveFromMonth DESC")
     fun getAllTariffs(): Flow<List<TariffEntity>>
 
+    // Добавление или обновление тарифа
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTariff(tariff: TariffEntity)
+
+    // Удаление тарифа при необходимости
+    @Query("DELETE FROM tariff_config WHERE id = :id")
+    suspend fun deleteTariff(id: Long)
 }
