@@ -49,6 +49,11 @@ class MainActivity : ComponentActivity() {
                                         db.flightDao().insertFlight(flight)
                                     }
                                 },
+                                onUpdateFlight = { flight -> // <--- ДОБАВЬТЕ ЭТУ СТРОКУ
+        lifecycleScope.launch {
+            db.flightDao().updateFlight(flight)
+        }
+    },
                                 onDeleteFlight = { flight ->
                                     lifecycleScope.launch {
                                         db.flightDao().deleteFlight(flight)
