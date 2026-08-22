@@ -746,53 +746,94 @@ fun SummaryCard(report: MonthlyReport, dutyDays: Int) {
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
-            Spacer(modifier = Modifier.height(8.dp))
 
             if (dutyDays > 0) {
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "За дежурства ($dutyDays дн.): ${String.format("%.2f", report.dutyPayment)} ₽",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.9f)
                 )
-                Spacer(modifier = Modifier.height(8.dp))
             }
 
+            Spacer(modifier = Modifier.height(12.dp))
             HorizontalDivider(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f))
             Spacer(modifier = Modifier.height(12.dp))
 
+            // Главные показатели
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Text("Общий налет", fontSize = 12.sp)
+                    Text(
+                        text = "Общий налет",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                    )
                     Text(
                         text = report.totalMinutes.minutesToHoursAndMinutes(),
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
-                Column {
-                    Text("Земля / Море", fontSize = 12.sp)
+
+                Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = "${report.totalLandMinutes.minutesToHoursAndMinutes()} / ${report.totalSeaMinutes.minutesToHoursAndMinutes()}",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
+                        text = "Полетных дней",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                     )
-                }
-                Column {
-                    Text("Полетных дней", fontSize = 12.sp)
                     Text(
                         text = "${report.totalFlightDays} дн.",
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Раздельная детализация по типам полета
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = "Земля",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                    )
+                    Text(
+                        text = report.totalLandMinutes.minutesToHoursAndMinutes(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = "Море",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                    )
+                    Text(
+                        text = report.totalSeaMinutes.minutesToHoursAndMinutes(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
             }
         }
     }
 }
+
 
 @Composable
 fun FlightRowItem(
