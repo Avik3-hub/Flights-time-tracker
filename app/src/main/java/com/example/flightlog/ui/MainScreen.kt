@@ -147,7 +147,6 @@ fun InputTabScreen(
     var seaMinutes by remember { mutableIntStateOf(0) }
     var showSeaTimePicker by remember { mutableStateOf(false) }
 
-    // Автокомплит для КВС
     val captainOptions = remember(flights) {
         flights.map { it.captain }.filter { it.isNotBlank() }.distinct()
     }
@@ -157,7 +156,6 @@ fun InputTabScreen(
         else captainOptions.filter { it.contains(captain, ignoreCase = true) }
     }
 
-    // Состояние даты и дней для блока дежурств
     val currentCal = remember { Calendar.getInstance() }
     var dutyYear by remember { mutableIntStateOf(currentCal.get(Calendar.YEAR)) }
     var dutyMonth by remember { mutableIntStateOf(currentCal.get(Calendar.MONTH) + 1) }
@@ -167,7 +165,7 @@ fun InputTabScreen(
     }
 
     var dutyDaysInput by remember(existingDuty, dutyYear, dutyMonth) {
-        mutableStateOf(existingDuty?.days?.toString() ?: "")
+        mutableStateOf(existingDuty?.dutyDays?.toString() ?: "")
     }
 
     val monthNames = listOf(
@@ -182,7 +180,6 @@ fun InputTabScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // 1. Блок добавления полета
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -200,7 +197,6 @@ fun InputTabScreen(
                         fontWeight = FontWeight.Bold
                     )
 
-                    // Выбор даты полета
                     OutlinedTextField(
                         value = formatDate(selectedDateMillis),
                         onValueChange = {},
@@ -237,7 +233,6 @@ fun InputTabScreen(
                         )
                     }
 
-                    // Поле КВС с автокомплитом
                     ExposedDropdownMenuBox(
                         expanded = captainExpanded && filteredCaptains.isNotEmpty(),
                         onExpandedChange = { captainExpanded = !captainExpanded }
@@ -270,7 +265,6 @@ fun InputTabScreen(
                         }
                     }
 
-                    // Выбор времени Земля / Море
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -337,7 +331,6 @@ fun InputTabScreen(
             }
         }
 
-        // 2. Блок дежурств
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -442,7 +435,7 @@ fun InputTabScreen(
                                     DutyEntity(
                                         month = dutyMonth,
                                         year = dutyYear,
-                                        days = daysCount
+                                        dutyDays = daysCount
                                     )
                                 )
                             }
@@ -455,7 +448,6 @@ fun InputTabScreen(
         }
     }
 
-    // Диалог выбора даты
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = selectedDateMillis)
         DatePickerDialog(
@@ -476,7 +468,6 @@ fun InputTabScreen(
         }
     }
 
-    // Диалоги выбора времени
     if (showLandTimePicker) {
         TimeSelectionDialog(
             initialHour = landHours,
@@ -578,11 +569,11 @@ fun StatisticsTabScreen(
 
     val selectedDuty = remember(dutyRecords, selectedYear, selectedMonth) {
         if (selectedMonth == 0) {
-            val totalDays = dutyRecords.filter { it.year == selectedYear }.sumOf { it.days }
-            DutyEntity(month = 0, year = selectedYear, days = totalDays)
+            val totalDays = dutyRecords.filter { it.year == selectedYear }.sumOf { it.dutyDays }
+            DutyEntity(month = 0, year = selectedYear, dutyDays = totalDays)
         } else {
             dutyRecords.find { it.month == selectedMonth && it.year == selectedYear }
-                ?: DutyEntity(month = selectedMonth, year = selectedYear, days = 0)
+                ?: DutyEntity(month = selectedMonth, year = selectedYear, dutyDays = 0)
         }
     }
 
@@ -674,7 +665,7 @@ fun StatisticsTabScreen(
         }
 
         item {
-            SummaryCard(report = report)
+            SummaryCard(report = report, dutyDays = selectedDuty.dutyDays)
         }
 
         item {
@@ -696,7 +687,7 @@ fun StatisticsTabScreen(
 }
 
 @Composable
-fun SummaryCard(report: MonthlyReport) {
+fun SummaryCard(report: MonthlyReport, dutyDays: Int) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -717,9 +708,9 @@ fun SummaryCard(report: MonthlyReport) {
             )
             Spacer(modifier = Modifier.height(8.dp))
 
-            if (report.dutyDays > 0) {
+            if (dutyDays > 0) {
                 Text(
-                    text = "За дежурства (${report.dutyDays} дн.): ${String.format("%.2f", report.dutyPayment)} ₽",
+                    text = "За дежурства ($dutyDays дн.): ${String.format("%.2f", report.dutyPayment)} ₽",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
