@@ -93,11 +93,14 @@ fun MainScreen(
             ) { page ->
                 when (page) {
                     0 -> InputTabScreen(
+                        flights = flights,
+                        dutyRecords = dutyRecords,
                         onAddFlight = onAddFlight,
                         onSaveDuty = onSaveDuty
                     )
                     1 -> StatisticsTabScreen(
                         flights = flights,
+                        dutyRecords = dutyRecords,
                         tariff = tariff,
                         onEditFlight = { flightToEdit = it },
                         onDeleteFlight = onDeleteFlight
@@ -119,8 +122,11 @@ fun MainScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InputTabScreen(
+    flights: List<FlightEntity>,
+    dutyRecords: List<DutyEntity>,
     onAddFlight: (FlightEntity) -> Unit,
     onSaveDuty: (DutyEntity) -> Unit
 ) {
@@ -129,7 +135,35 @@ fun InputTabScreen(
     var missionNumber by remember { mutableStateOf("") }
     var landTimeInput by remember { mutableStateOf("") }
     var seaTimeInput by remember { mutableStateOf("") }
-    var dutyDaysInput by remember { mutableStateOf("") }
+
+    // Автокомплит для КВС
+    val captainOptions = remember(flights) {
+        flights.map { it.captain }.filter { it.isNotBlank() }.distinct()
+    }
+    var captainExpanded by remember { mutableStateOf(false) }
+    val filteredCaptains = remember(captain, captainOptions) {
+        if (captain.isBlank()) captainOptions
+        else captainOptions.filter { it.contains(captain, ignoreCase = true) }
+    }
+
+    // Состояние даты и дней для блока дежурств
+    val currentCal = remember { Calendar.getInstance() }
+    var dutyYear by remember { mutableIntStateOf(currentCal.get(Calendar.YEAR)) }
+    var dutyMonth by remember { mutableIntStateOf(currentCal.get(Calendar.MONTH) + 1) }
+
+    val existingDuty = remember(dutyRecords, dutyYear, dutyMonth) {
+        dutyRecords.find { it.year == dutyYear && it.month == dutyMonth }
+    }
+
+    var dutyDaysInput by remember(existingDuty, dutyYear, dutyMonth) {
+        mutableStateOf(existingDuty?.dutyDays?.toString() ?: "")
+    }
+
+    val monthNames = listOf(
+        "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+        "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
+    )
+    val yearsList = listOf(2024, 2025, 2026, 2027, 2028)
 
     LazyColumn(
         modifier = Modifier
@@ -137,6 +171,7 @@ fun InputTabScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // 1. Блок добавления полета
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -173,13 +208,40 @@ fun InputTabScreen(
                             singleLine = true
                         )
                     }
-                    OutlinedTextField(
-                        value = captain,
-                        onValueChange = { captain = it },
-                        label = { Text("ФИО КВС") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
+
+                    // Поле КВС с подсказками (Автокомплит)
+                    ExposedDropdownMenuBox(
+                        expanded = captainExpanded && filteredCaptains.isNotEmpty(),
+                        onExpandedChange = { captainExpanded = !captainExpanded }
+                    ) {
+                        OutlinedTextField(
+                            value = captain,
+                            onValueChange = {
+                                captain = it
+                                captainExpanded = true
+                            },
+                            label = { Text("ФИО КВС") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(),
+                            singleLine = true
+                        )
+                        ExposedDropdownMenu(
+                            expanded = captainExpanded && filteredCaptains.isNotEmpty(),
+                            onDismissRequest = { captainExpanded = false }
+                        ) {
+                            filteredCaptains.forEach { option ->
+                                DropdownMenuItem(
+                                    text = { Text(option) },
+                                    onClick = {
+                                        captain = option
+                                        captainExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -231,6 +293,7 @@ fun InputTabScreen(
             }
         }
 
+        // 2. Блок дежурств с выбором периода
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -247,6 +310,73 @@ fun InputTabScreen(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
+
+                    // Выбор месяца и года для дежурства
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        var yearExpanded by remember { mutableStateOf(false) }
+                        ExposedDropdownMenuBox(
+                            expanded = yearExpanded,
+                            onExpandedChange = { yearExpanded = !yearExpanded },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            OutlinedTextField(
+                                value = dutyYear.toString(),
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Год") },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = yearExpanded) },
+                                modifier = Modifier.menuAnchor()
+                            )
+                            ExposedDropdownMenu(
+                                expanded = yearExpanded,
+                                onDismissRequest = { yearExpanded = false }
+                            ) {
+                                yearsList.forEach { y ->
+                                    DropdownMenuItem(
+                                        text = { Text(y.toString()) },
+                                        onClick = {
+                                            dutyYear = y
+                                            yearExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        var monthExpanded by remember { mutableStateOf(false) }
+                        ExposedDropdownMenuBox(
+                            expanded = monthExpanded,
+                            onExpandedChange = { monthExpanded = !monthExpanded },
+                            modifier = Modifier.weight(1.3f)
+                        ) {
+                            OutlinedTextField(
+                                value = monthNames[dutyMonth - 1],
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Месяц") },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = monthExpanded) },
+                                modifier = Modifier.menuAnchor()
+                            )
+                            ExposedDropdownMenu(
+                                expanded = monthExpanded,
+                                onDismissRequest = { monthExpanded = false }
+                            ) {
+                                monthNames.forEachIndexed { idx, mName ->
+                                    DropdownMenuItem(
+                                        text = { Text(mName) },
+                                        onClick = {
+                                            dutyMonth = idx + 1
+                                            monthExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -265,11 +395,10 @@ fun InputTabScreen(
                         Button(
                             onClick = {
                                 val days = dutyDaysInput.toIntOrNull() ?: 0
-                                val cal = Calendar.getInstance()
                                 onSaveDuty(
                                     DutyEntity(
-                                        month = cal.get(Calendar.MONTH) + 1,
-                                        year = cal.get(Calendar.YEAR),
+                                        month = dutyMonth,
+                                        year = dutyYear,
                                         dutyDays = days
                                     )
                                 )
@@ -288,6 +417,7 @@ fun InputTabScreen(
 @Composable
 fun StatisticsTabScreen(
     flights: List<FlightEntity>,
+    dutyRecords: List<DutyEntity>,
     tariff: TariffEntity,
     onEditFlight: (FlightEntity) -> Unit,
     onDeleteFlight: (Long) -> Unit
@@ -296,10 +426,12 @@ fun StatisticsTabScreen(
     var selectedYear by remember { mutableIntStateOf(currentCalendar.get(Calendar.YEAR)) }
     var selectedMonth by remember { mutableIntStateOf(currentCalendar.get(Calendar.MONTH) + 1) }
 
-    val yearsList = remember(flights) {
-        val years = flights.map {
+    val yearsList = remember(flights, dutyRecords) {
+        val flightYears = flights.map {
             Calendar.getInstance().apply { timeInMillis = it.dateTimestamp }.get(Calendar.YEAR)
-        }.distinct().sortedDescending().toMutableList()
+        }
+        val dutyYears = dutyRecords.map { it.year }
+        val years = (flightYears + dutyYears).distinct().sortedDescending().toMutableList()
         val currYr = Calendar.getInstance().get(Calendar.YEAR)
         if (!years.contains(currYr)) years.add(0, currYr)
         years
@@ -319,10 +451,21 @@ fun StatisticsTabScreen(
         }
     }
 
-    val report: MonthlyReport = remember(filteredFlights, tariff) {
+    // Расчет дней дежурств за выбранный месяц или за весь год
+    val selectedDuty = remember(dutyRecords, selectedYear, selectedMonth) {
+        if (selectedMonth == 0) {
+            val totalDays = dutyRecords.filter { it.year == selectedYear }.sumOf { it.dutyDays }
+            DutyEntity(month = 0, year = selectedYear, dutyDays = totalDays)
+        } else {
+            dutyRecords.find { it.month == selectedMonth && it.year == selectedYear }
+                ?: DutyEntity(month = selectedMonth, year = selectedYear, dutyDays = 0)
+        }
+    }
+
+    val report: MonthlyReport = remember(filteredFlights, selectedDuty, tariff) {
         CalculationEngine.calculateMonthlyReport(
             filteredFlights,
-            DutyEntity(month = selectedMonth, year = selectedYear, dutyDays = 0),
+            selectedDuty,
             tariff
         )
     }
@@ -448,7 +591,18 @@ fun SummaryCard(report: MonthlyReport) {
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (report.dutyDays > 0) {
+                Text(
+                    text = "За дежурства (${report.dutyDays} дн.): ${String.format("%.2f", report.dutyPayment)} ₽",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
             HorizontalDivider(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f))
             Spacer(modifier = Modifier.height(12.dp))
 
