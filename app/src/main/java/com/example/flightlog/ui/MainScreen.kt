@@ -1,6 +1,7 @@
 package com.example.flightlog.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -9,8 +10,10 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -130,11 +133,20 @@ fun InputTabScreen(
     onAddFlight: (FlightEntity) -> Unit,
     onSaveDuty: (DutyEntity) -> Unit
 ) {
+    var selectedDateMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var showDatePicker by remember { mutableStateOf(false) }
+
     var aircraftNumber by remember { mutableStateOf("") }
     var captain by remember { mutableStateOf("") }
     var missionNumber by remember { mutableStateOf("") }
-    var landTimeInput by remember { mutableStateOf("") }
-    var seaTimeInput by remember { mutableStateOf("") }
+
+    var landHours by remember { mutableIntStateOf(0) }
+    var landMinutes by remember { mutableIntStateOf(0) }
+    var showLandTimePicker by remember { mutableStateOf(false) }
+
+    var seaHours by remember { mutableIntStateOf(0) }
+    var seaMinutes by remember { mutableIntStateOf(0) }
+    var showSeaTimePicker by remember { mutableStateOf(false) }
 
     // Автокомплит для КВС
     val captainOptions = remember(flights) {
@@ -188,6 +200,23 @@ fun InputTabScreen(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
+
+                    // Выбор даты полета
+                    OutlinedTextField(
+                        value = formatDate(selectedDateMillis),
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Дата полета") },
+                        trailingIcon = {
+                            IconButton(onClick = { showDatePicker = true }) {
+                                Icon(Icons.Default.DateRange, contentDescription = "Выбрать дату")
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showDatePicker = true }
+                    )
+
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -209,7 +238,7 @@ fun InputTabScreen(
                         )
                     }
 
-                    // Поле КВС с подсказками (Автокомплит)
+                    // Поле КВС с автокомплитом
                     ExposedDropdownMenuBox(
                         expanded = captainExpanded && filteredCaptains.isNotEmpty(),
                         onExpandedChange = { captainExpanded = !captainExpanded }
@@ -242,45 +271,61 @@ fun InputTabScreen(
                         }
                     }
 
+                    // Выбор времени Земля / Море
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         OutlinedTextField(
-                            value = landTimeInput,
-                            onValueChange = { landTimeInput = it },
+                            value = String.format("%02d:%02d", landHours, landMinutes),
+                            onValueChange = {},
+                            readOnly = true,
                             label = { Text("Земля (ЧЧ:ММ)") },
-                            placeholder = { Text("03:35") },
-                            modifier = Modifier.weight(1f),
-                            singleLine = true
+                            trailingIcon = {
+                                IconButton(onClick = { showLandTimePicker = true }) {
+                                    Icon(Icons.Default.Schedule, contentDescription = "Выбрать время")
+                                }
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { showLandTimePicker = true }
                         )
                         OutlinedTextField(
-                            value = seaTimeInput,
-                            onValueChange = { seaTimeInput = it },
+                            value = String.format("%02d:%02d", seaHours, seaMinutes),
+                            onValueChange = {},
+                            readOnly = true,
                             label = { Text("Море (ЧЧ:ММ)") },
-                            placeholder = { Text("00:00") },
-                            modifier = Modifier.weight(1f),
-                            singleLine = true
+                            trailingIcon = {
+                                IconButton(onClick = { showSeaTimePicker = true }) {
+                                    Icon(Icons.Default.Schedule, contentDescription = "Выбрать время")
+                                }
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { showSeaTimePicker = true }
                         )
                     }
+
                     Button(
                         onClick = {
                             if (aircraftNumber.isNotBlank()) {
                                 onAddFlight(
                                     FlightEntity(
-                                        dateTimestamp = System.currentTimeMillis(),
+                                        dateTimestamp = selectedDateMillis,
                                         aircraftNumber = aircraftNumber,
                                         captain = captain,
                                         missionNumber = missionNumber.ifBlank { null },
-                                        landTimeMinutes = parseTimeStringToMinutes(landTimeInput),
-                                        seaTimeMinutes = parseTimeStringToMinutes(seaTimeInput)
+                                        landTimeMinutes = landHours * 60 + landMinutes,
+                                        seaTimeMinutes = seaHours * 60 + seaMinutes
                                     )
                                 )
                                 aircraftNumber = ""
                                 captain = ""
                                 missionNumber = ""
-                                landTimeInput = ""
-                                seaTimeInput = ""
+                                landHours = 0
+                                landMinutes = 0
+                                seaHours = 0
+                                seaMinutes = 0
                             }
                         },
                         modifier = Modifier.fillMaxWidth()
@@ -293,7 +338,7 @@ fun InputTabScreen(
             }
         }
 
-        // 2. Блок дежурств с выбором периода
+        // 2. Блок дежурств
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -311,7 +356,6 @@ fun InputTabScreen(
                         fontWeight = FontWeight.Bold
                     )
 
-                    // Выбор месяца и года для дежурства
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -411,6 +455,88 @@ fun InputTabScreen(
             }
         }
     }
+
+    // Диалог выбора даты
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = selectedDateMillis)
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { selectedDateMillis = it }
+                        showDatePicker = false
+                    }
+                ) { Text("ОК") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Отмена") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    // Диалоги выбора времени
+    if (showLandTimePicker) {
+        TimeSelectionDialog(
+            initialHour = landHours,
+            initialMinute = landMinutes,
+            onDismiss = { showLandTimePicker = false },
+            onConfirm = { h, m ->
+                landHours = h
+                landMinutes = m
+                showLandTimePicker = false
+            }
+        )
+    }
+
+    if (showSeaTimePicker) {
+        TimeSelectionDialog(
+            initialHour = seaHours,
+            initialMinute = seaMinutes,
+            onDismiss = { showSeaTimePicker = false },
+            onConfirm = { h, m ->
+                seaHours = h
+                seaMinutes = m
+                showSeaTimePicker = false
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TimeSelectionDialog(
+    initialHour: Int,
+    initialMinute: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (Int, Int) -> Unit
+) {
+    val timePickerState = rememberTimePickerState(
+        initialHour = initialHour,
+        initialMinute = initialMinute,
+        is24Hour = true
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = { onConfirm(timePickerState.hour, timePickerState.minute) }) {
+                Text("ОК")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Отмена")
+            }
+        },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                TimePicker(state = timePickerState)
+            }
+        }
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -451,7 +577,6 @@ fun StatisticsTabScreen(
         }
     }
 
-    // Расчет дней дежурств за выбранный месяц или за весь год
     val selectedDuty = remember(dutyRecords, selectedYear, selectedMonth) {
         if (selectedMonth == 0) {
             val totalDays = dutyRecords.filter { it.year == selectedYear }.sumOf { it.dutyDays }
@@ -645,8 +770,7 @@ fun FlightRowItem(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val dateFormat = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()) }
-    val dateStr = dateFormat.format(Date(flight.dateTimestamp))
+    val dateStr = formatDate(flight.dateTimestamp)
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -697,23 +821,45 @@ fun FlightRowItem(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditFlightDialog(
     flight: FlightEntity,
     onDismiss: () -> Unit,
     onSave: (FlightEntity) -> Unit
 ) {
+    var dateMillis by remember { mutableLongStateOf(flight.dateTimestamp) }
+    var showDatePicker by remember { mutableStateOf(false) }
+
     var aircraftNumber by remember { mutableStateOf(flight.aircraftNumber) }
     var captain by remember { mutableStateOf(flight.captain) }
     var missionNumber by remember { mutableStateOf(flight.missionNumber ?: "") }
-    var landTimeInput by remember { mutableStateOf(minutesToHoursString(flight.landTimeMinutes)) }
-    var seaTimeInput by remember { mutableStateOf(minutesToHoursString(flight.seaTimeMinutes)) }
+
+    var landHours by remember { mutableIntStateOf(flight.landTimeMinutes / 60) }
+    var landMinutes by remember { mutableIntStateOf(flight.landTimeMinutes % 60) }
+    var showLandTimePicker by remember { mutableStateOf(false) }
+
+    var seaHours by remember { mutableIntStateOf(flight.seaTimeMinutes / 60) }
+    var seaMinutes by remember { mutableIntStateOf(flight.seaTimeMinutes % 60) }
+    var showSeaTimePicker by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Редактирование полета") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = formatDate(dateMillis),
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Дата") },
+                    trailingIcon = {
+                        IconButton(onClick = { showDatePicker = true }) {
+                            Icon(Icons.Default.DateRange, contentDescription = null)
+                        }
+                    },
+                    modifier = Modifier.clickable { showDatePicker = true }
+                )
                 OutlinedTextField(
                     value = aircraftNumber,
                     onValueChange = { aircraftNumber = it },
@@ -733,16 +879,28 @@ fun EditFlightDialog(
                     singleLine = true
                 )
                 OutlinedTextField(
-                    value = landTimeInput,
-                    onValueChange = { landTimeInput = it },
-                    label = { Text("Земля (ЧЧ:ММ)") },
-                    singleLine = true
+                    value = String.format("%02d:%02d", landHours, landMinutes),
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Земля") },
+                    trailingIcon = {
+                        IconButton(onClick = { showLandTimePicker = true }) {
+                            Icon(Icons.Default.Schedule, contentDescription = null)
+                        }
+                    },
+                    modifier = Modifier.clickable { showLandTimePicker = true }
                 )
                 OutlinedTextField(
-                    value = seaTimeInput,
-                    onValueChange = { seaTimeInput = it },
-                    label = { Text("Море (ЧЧ:ММ)") },
-                    singleLine = true
+                    value = String.format("%02d:%02d", seaHours, seaMinutes),
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Море") },
+                    trailingIcon = {
+                        IconButton(onClick = { showSeaTimePicker = true }) {
+                            Icon(Icons.Default.Schedule, contentDescription = null)
+                        }
+                    },
+                    modifier = Modifier.clickable { showSeaTimePicker = true }
                 )
             }
         },
@@ -750,11 +908,12 @@ fun EditFlightDialog(
             Button(
                 onClick = {
                     val updated = flight.copy(
+                        dateTimestamp = dateMillis,
                         aircraftNumber = aircraftNumber,
                         captain = captain,
                         missionNumber = missionNumber.ifBlank { null },
-                        landTimeMinutes = parseTimeStringToMinutes(landTimeInput),
-                        seaTimeMinutes = parseTimeStringToMinutes(seaTimeInput)
+                        landTimeMinutes = landHours * 60 + landMinutes,
+                        seaTimeMinutes = seaHours * 60 + seaMinutes
                     )
                     onSave(updated)
                 }
@@ -768,12 +927,58 @@ fun EditFlightDialog(
             }
         }
     )
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = dateMillis)
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { dateMillis = it }
+                        showDatePicker = false
+                    }
+                ) { Text("ОК") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Отмена") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    if (showLandTimePicker) {
+        TimeSelectionDialog(
+            initialHour = landHours,
+            initialMinute = landMinutes,
+            onDismiss = { showLandTimePicker = false },
+            onConfirm = { h, m ->
+                landHours = h
+                landMinutes = m
+                showLandTimePicker = false
+            }
+        )
+    }
+
+    if (showSeaTimePicker) {
+        TimeSelectionDialog(
+            initialHour = seaHours,
+            initialMinute = seaMinutes,
+            onDismiss = { showSeaTimePicker = false },
+            onConfirm = { h, m ->
+                seaHours = h
+                seaMinutes = m
+                showSeaTimePicker = false
+            }
+        )
+    }
 }
 
-fun minutesToHoursString(totalMinutes: Int): String {
-    val h = totalMinutes / 60
-    val m = totalMinutes % 60
-    return String.format("%02d:%02d", h, m)
+fun formatDate(timestamp: Long): String {
+    val dateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
+    dateFormat.timeZone = TimeZone.getTimeZone("UTC")
+    return dateFormat.format(Date(timestamp))
 }
 
 fun Number?.minutesToHoursAndMinutes(): String {
@@ -781,21 +986,4 @@ fun Number?.minutesToHoursAndMinutes(): String {
     val hours = totalMinutes / 60
     val minutes = totalMinutes % 60
     return String.format("%d ч %02d мин", hours, minutes)
-}
-
-fun parseTimeStringToMinutes(timeString: String): Int {
-    if (timeString.isBlank()) return 0
-    val parts = timeString.split(":")
-    return try {
-        if (parts.size == 2) {
-            val hours = parts[0].trim().toIntOrNull() ?: 0
-            val minutes = parts[1].trim().toIntOrNull() ?: 0
-            hours * 60 + minutes
-        } else {
-            val hours = timeString.trim().toIntOrNull() ?: 0
-            hours * 60
-        }
-    } catch (e: Exception) {
-        0
-    }
 }
