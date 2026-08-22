@@ -17,6 +17,8 @@ import com.example.flightlog.ui.MainScreen
 import com.example.flightlog.ui.SettingsScreen
 import com.example.flightlog.ui.theme.FlightLogTheme
 import kotlinx.coroutines.launch
+import com.example.flightlog.data.db.*
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
