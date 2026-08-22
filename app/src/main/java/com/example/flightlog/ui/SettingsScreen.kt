@@ -19,8 +19,11 @@ fun SettingsScreen(
     onSaveTariff: (TariffEntity) -> Unit,
     onBackClick: () -> Unit
 ) {
-    var landRate by remember(currentTariff) { mutableStateOf(currentTariff.landHourRate.toString()) }
-    var seaRate by remember(currentTariff) { mutableStateOf(currentTariff.seaHourRate.toString()) }
+    var effectiveYear by remember { mutableIntStateOf(currentTariff.effectiveFromYear) }
+    var effectiveMonth by remember { mutableIntStateOf(currentTariff.effectiveFromMonth) }
+
+    var landRate by remember(currentTariff) { mutableStateOf(currentTariff.landHourlyRate.toString()) }
+    var seaRate by remember(currentTariff) { mutableStateOf(currentTariff.seaHourlyRate.toString()) }
     var dutyRate by remember(currentTariff) { mutableStateOf(currentTariff.dutyDayRate.toString()) }
 
     Scaffold(
@@ -46,6 +49,25 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = effectiveYear.toString(),
+                    onValueChange = { effectiveYear = it.toIntOrNull() ?: effectiveYear },
+                    label = { Text("Год ввода") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
+                OutlinedTextField(
+                    value = effectiveMonth.toString(),
+                    onValueChange = { effectiveMonth = it.toIntOrNull() ?: effectiveMonth },
+                    label = { Text("Месяц (1-12)") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
+            }
+
             OutlinedTextField(
                 value = landRate,
                 onValueChange = { landRate = it },
@@ -83,9 +105,11 @@ fun SettingsScreen(
 
             Button(
                 onClick = {
-                    val updated = currentTariff.copy(
-                        landHourRate = landRate.toDoubleOrNull() ?: currentTariff.landHourRate,
-                        seaHourRate = seaRate.toDoubleOrNull() ?: currentTariff.seaHourRate,
+                    val updated = TariffEntity(
+                        effectiveFromYear = effectiveYear,
+                        effectiveFromMonth = effectiveMonth,
+                        landHourlyRate = landRate.toDoubleOrNull() ?: currentTariff.landHourlyRate,
+                        seaHourlyRate = seaRate.toDoubleOrNull() ?: currentTariff.seaHourlyRate,
                         dutyDayRate = dutyRate.toDoubleOrNull() ?: currentTariff.dutyDayRate
                     )
                     onSaveTariff(updated)
@@ -93,7 +117,7 @@ fun SettingsScreen(
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Сохранить тарифы", fontWeight = FontWeight.Bold)
+                Text("Сохранить тариф", fontWeight = FontWeight.Bold)
             }
         }
     }
