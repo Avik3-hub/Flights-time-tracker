@@ -13,7 +13,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -168,7 +167,7 @@ fun InputTabScreen(
     }
 
     var dutyDaysInput by remember(existingDuty, dutyYear, dutyMonth) {
-        mutableStateOf(existingDuty?.dutyDays?.toString() ?: "")
+        mutableStateOf(existingDuty?.days?.toString() ?: "")
     }
 
     val monthNames = listOf(
@@ -283,7 +282,7 @@ fun InputTabScreen(
                             label = { Text("Земля (ЧЧ:ММ)") },
                             trailingIcon = {
                                 IconButton(onClick = { showLandTimePicker = true }) {
-                                    Icon(Icons.Default.Schedule, contentDescription = "Выбрать время")
+                                    Icon(Icons.Default.DateRange, contentDescription = "Выбрать время")
                                 }
                             },
                             modifier = Modifier
@@ -297,7 +296,7 @@ fun InputTabScreen(
                             label = { Text("Море (ЧЧ:ММ)") },
                             trailingIcon = {
                                 IconButton(onClick = { showSeaTimePicker = true }) {
-                                    Icon(Icons.Default.Schedule, contentDescription = "Выбрать время")
+                                    Icon(Icons.Default.DateRange, contentDescription = "Выбрать время")
                                 }
                             },
                             modifier = Modifier
@@ -438,12 +437,12 @@ fun InputTabScreen(
                         Spacer(modifier = Modifier.width(12.dp))
                         Button(
                             onClick = {
-                                val days = dutyDaysInput.toIntOrNull() ?: 0
+                                val daysCount = dutyDaysInput.toIntOrNull() ?: 0
                                 onSaveDuty(
                                     DutyEntity(
                                         month = dutyMonth,
                                         year = dutyYear,
-                                        dutyDays = days
+                                        days = daysCount
                                     )
                                 )
                             }
@@ -579,11 +578,11 @@ fun StatisticsTabScreen(
 
     val selectedDuty = remember(dutyRecords, selectedYear, selectedMonth) {
         if (selectedMonth == 0) {
-            val totalDays = dutyRecords.filter { it.year == selectedYear }.sumOf { it.dutyDays }
-            DutyEntity(month = 0, year = selectedYear, dutyDays = totalDays)
+            val totalDays = dutyRecords.filter { it.year == selectedYear }.sumOf { it.days }
+            DutyEntity(month = 0, year = selectedYear, days = totalDays)
         } else {
             dutyRecords.find { it.month == selectedMonth && it.year == selectedYear }
-                ?: DutyEntity(month = selectedMonth, year = selectedYear, dutyDays = 0)
+                ?: DutyEntity(month = selectedMonth, year = selectedYear, days = 0)
         }
     }
 
@@ -885,7 +884,7 @@ fun EditFlightDialog(
                     label = { Text("Земля") },
                     trailingIcon = {
                         IconButton(onClick = { showLandTimePicker = true }) {
-                            Icon(Icons.Default.Schedule, contentDescription = null)
+                            Icon(Icons.Default.DateRange, contentDescription = null)
                         }
                     },
                     modifier = Modifier.clickable { showLandTimePicker = true }
@@ -897,7 +896,7 @@ fun EditFlightDialog(
                     label = { Text("Море") },
                     trailingIcon = {
                         IconButton(onClick = { showSeaTimePicker = true }) {
-                            Icon(Icons.Default.Schedule, contentDescription = null)
+                            Icon(Icons.Default.DateRange, contentDescription = null)
                         }
                     },
                     modifier = Modifier.clickable { showSeaTimePicker = true }
