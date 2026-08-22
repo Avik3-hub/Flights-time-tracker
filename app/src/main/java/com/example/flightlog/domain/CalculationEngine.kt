@@ -16,7 +16,14 @@ data class MonthlyReport(
 )
 
 object CalculationEngine {
-    private const val TAX_FACTOR = 0.87 // Учет вычета 13% НДФЛ
+    private const val TAX_FACTOR = 0.87
+
+    fun getActiveTariff(tariffs: List<TariffEntity>, year: Int, month: Int): TariffEntity? {
+        val targetPeriod = year * 12 + month
+        return tariffs
+            .filter { (it.effectiveFromYear * 12 + it.effectiveFromMonth) <= targetPeriod }
+            .maxByOrNull { it.effectiveFromYear * 12 + it.effectiveFromMonth }
+    }
 
     fun calculateMonthlyReport(
         flights: List<FlightEntity>,
@@ -29,9 +36,8 @@ object CalculationEngine {
 
         val totalFlightDays = flights.map { it.dateTimestamp }.distinct().size
 
-        // Чистая ставка после вычета 13%
-        val netLandRate = tariff.landHourRate * TAX_FACTOR
-        val netSeaRate = tariff.seaHourRate * TAX_FACTOR
+        val netLandRate = tariff.landHourlyRate * TAX_FACTOR
+        val netSeaRate = tariff.seaHourlyRate * TAX_FACTOR
         val netDutyRate = tariff.dutyDayRate * TAX_FACTOR
 
         val landPayment = (totalLandMinutes / 60.0) * netLandRate
