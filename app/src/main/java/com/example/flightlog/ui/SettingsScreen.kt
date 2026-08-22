@@ -38,23 +38,36 @@ fun SettingsScreen(
     var dutyRate by remember(currentTariff) { mutableStateOf(currentTariff.dutyDayRate.toString()) }
 
     val exportLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    ) { uri ->
-        uri?.let {
-            val success = ExcelExporter.exportToExcel(
-                context = context,
-                uri = it,
-                flights = flights,
-                duty = dutyRecord,
-                tariff = currentTariff
-            )
-            if (success) {
-                Toast.makeText(context, "Отчет сохранен!", Toast.LENGTH_LONG).show()
-            } else {
-                Toast.makeText(context, "Ошибка при сохранении файла", Toast.LENGTH_LONG).show()
-            }
+    contract = ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+) { uri ->
+    uri?.let {
+        val success = ExcelExporter.exportToExcel(
+            context = context,
+            uri = it,
+            flights = flights,
+            duty = dutyRecord,
+            tariff = currentTariff
+        )
+        if (success) {
+            Toast.makeText(context, "Отчет сохранен в XLSX!", Toast.LENGTH_LONG).show()
+        } else {
+            Toast.makeText(context, "Ошибка при сохранении", Toast.LENGTH_LONG).show()
         }
     }
+}
+
+Button(
+    onClick = { 
+        exportLauncher.launch("Отчет_налет_${effectiveYear}_${effectiveMonth}.xlsx") 
+    },
+    modifier = Modifier.fillMaxWidth(),
+    colors = ButtonDefaults.buttonColors(
+        containerColor = MaterialTheme.colorScheme.secondary
+    )
+) {
+    Text("Выгрузить отчет в Excel (.xlsx)")
+}
+
 
     Scaffold(
         topBar = {
