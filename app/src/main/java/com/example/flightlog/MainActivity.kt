@@ -75,28 +75,29 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         "settings" -> {
-                            // Берём последний тариф для предзаполнения или создаём пустой
-                            val currentTariff = tariffs.firstOrNull() ?: com.example.flightlog.data.db.TariffEntity(
-                                effectiveFromYear = 2025,
-                                effectiveFromMonth = 1,
-                                landHourlyRate = 879.57,
-                                seaHourlyRate = 0.0,
-                                dutyDayRate = 0.0
-                            )
+    val currentTariff = tariffs.firstOrNull() ?: TariffEntity(
+        effectiveFromYear = 2026,
+        effectiveFromMonth = 8,
+        landHourlyRate = 1500.0,
+        seaHourlyRate = 0.0,
+        dutyDayRate = 0.0
+    )
 
-                            SettingsScreen(
-                                currentTariff = currentTariff,
-                                onSaveTariff = { newTariff ->
-                                    lifecycleScope.launch {
-                                        db.tariffDao().insertTariff(newTariff)
-                                        currentScreen = "main"
-                                    }
-                                },
-                                onBackClick = {
-                                    currentScreen = "main"
-                                }
-                            )
-                        }
+    SettingsScreen(
+        currentTariff = currentTariff,
+        flights = flights,
+        dutyRecord = dutyRecords.firstOrNull(),
+        onSaveTariff = { updatedTariff ->
+            lifecycleScope.launch {
+                db.tariffDao().insertTariff(updatedTariff)
+                currentScreen = "main"
+            }
+        },
+        onBackClick = {
+            currentScreen = "main"
+        }
+    )
+}
                     }
                 }
             }
