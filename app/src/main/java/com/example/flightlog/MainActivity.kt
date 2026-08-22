@@ -26,6 +26,12 @@ class MainActivity : ComponentActivity() {
         val db = AppDatabase.getDatabase(this)
 
         setContent {
+            var isDarkTheme by remember { mutableStateOf(false) }
+
+FlightLogTheme(darkTheme = isDarkTheme) {
+    // Вызов MainScreen с передачей isDarkTheme и onToggleTheme = { isDarkTheme = !isDarkTheme }
+}
+
             MaterialTheme {
                 var currentScreen by remember { mutableStateOf("main") }
 
