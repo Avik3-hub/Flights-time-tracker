@@ -55,3 +55,12 @@ interface TariffDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdate(tariff: TariffEntity)
 }
+
+@Dao
+interface TariffDao {
+    @Query("SELECT * FROM tariffs ORDER BY effectiveFromYear DESC, effectiveFromMonth DESC")
+    fun getAllTariffs(): Flow<List<TariffEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTariff(tariff: TariffEntity)
+}
