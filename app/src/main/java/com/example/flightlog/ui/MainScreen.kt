@@ -18,7 +18,6 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,14 +27,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.flightlog.data.db.DutyEntity
-import com.example.flightlog.data.db.ExcelImporter
 import com.example.flightlog.data.db.FlightEntity
 import com.example.flightlog.data.db.TariffEntity
 import com.example.flightlog.data.export.ExcelExporter
 import com.example.flightlog.domain.CalculationEngine
 import com.example.flightlog.domain.MonthlyReport
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -558,39 +554,6 @@ fun StatisticsTabScreen(
     onDeleteFlight: (Long) -> Unit,
     onImportSuccess: (List<FlightEntity>, List<DutyEntity>) -> Unit = { _, _ -> }
 ) {
-    val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-    val filePickerLauncher = rememberLauncherForActivityResult(
-    contract = ActivityResultContracts.OpenDocument()
-) { uri: Uri? ->
-    uri?.let { fileUri ->
-        coroutineScope.launch(Dispatchers.IO) {
-            try {
-                val result = ExcelImporter.importFromExcel(context, fileUri)
-                
-                // Возвращаемся в главный поток для обновления UI
-                kotlinx.coroutines.withContext(Dispatchers.Main) {
-                    onImportSuccess(result.flights, result.duties)
-                    Toast.makeText(
-                        context, 
-                        "Импортировано полетов: ${result.flights.size}", 
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                kotlinx.coroutines.withContext(Dispatchers.Main) {
-                    Toast.makeText(
-                        context, 
-                        "Ошибка при чтении файла", 
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
-            }
-        }
-    }
-}
-
     val currentCalendar = remember { Calendar.getInstance() }
     var selectedYear by remember { mutableIntStateOf(currentCalendar.get(Calendar.YEAR)) }
     var selectedMonth by remember { mutableIntStateOf(currentCalendar.get(Calendar.MONTH) + 1) }
@@ -725,26 +688,6 @@ fun StatisticsTabScreen(
                         }
                     }
                 }
-            }
-        }
-        item {
-            Button(
-                onClick = {
-                    filePickerLauncher.launch(
-                        arrayOf(
-                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            "application/vnd.ms-excel"
-                        )
-                    )
-                },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.secondary
-                )
-            ) {
-                Icon(Icons.Default.Share, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Импортировать данные из Excel")
             }
         }
         item {
