@@ -18,7 +18,7 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -725,7 +725,7 @@ fun StatisticsTabScreen(
                     containerColor = MaterialTheme.colorScheme.secondary
                 )
             ) {
-                Icon(Icons.Default.Upload, contentDescription = null)
+                Icon(Icons.Default.Share, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Импортировать данные из Excel")
             }
