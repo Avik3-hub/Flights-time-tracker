@@ -1,5 +1,8 @@
 package com.example.flightlog.ui
 
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,24 +21,19 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.flightlog.data.db.DutyEntity
 import com.example.flightlog.data.db.FlightEntity
 import com.example.flightlog.data.db.TariffEntity
+import com.example.flightlog.data.export.ExcelExporter
 import com.example.flightlog.domain.CalculationEngine
 import com.example.flightlog.domain.MonthlyReport
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
-import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.ui.platform.LocalContext
-import com.example.flightlog.data.export.ExcelExporter
-
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -53,7 +51,6 @@ fun MainScreen(
 ) {
     val pagerState = rememberPagerState(pageCount = { 2 })
     val coroutineScope = rememberCoroutineScope()
-
     var flightToEdit by remember { mutableStateOf<FlightEntity?>(null) }
     var menuExpanded by remember { mutableStateOf(false) }
 
@@ -121,7 +118,6 @@ fun MainScreen(
                     text = { Text("Статистика и история", fontWeight = FontWeight.Bold) }
                 )
             }
-
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize()
@@ -196,7 +192,6 @@ fun InputTabScreen(
     val existingDuty = remember(dutyRecords, dutyYear, dutyMonth) {
         dutyRecords.find { it.year == dutyYear && it.month == dutyMonth }
     }
-
     var dutyDaysInput by remember(existingDuty, dutyYear, dutyMonth) {
         mutableStateOf(existingDuty?.dutyDays?.toString() ?: "")
     }
@@ -229,7 +224,6 @@ fun InputTabScreen(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
-
                     OutlinedTextField(
                         value = formatDate(selectedDateMillis),
                         onValueChange = {},
@@ -244,7 +238,6 @@ fun InputTabScreen(
                             .fillMaxWidth()
                             .clickable { showDatePicker = true }
                     )
-
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -265,7 +258,6 @@ fun InputTabScreen(
                             singleLine = true
                         )
                     }
-
                     ExposedDropdownMenuBox(
                         expanded = captainExpanded && filteredCaptains.isNotEmpty(),
                         onExpandedChange = { captainExpanded = !captainExpanded }
@@ -297,7 +289,6 @@ fun InputTabScreen(
                             }
                         }
                     }
-
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -331,7 +322,6 @@ fun InputTabScreen(
                                 .clickable { showSeaTimePicker = true }
                         )
                     }
-
                     Button(
                         onClick = {
                             if (aircraftNumber.isNotBlank()) {
@@ -363,7 +353,6 @@ fun InputTabScreen(
                 }
             }
         }
-
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -380,7 +369,6 @@ fun InputTabScreen(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
-
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -414,7 +402,6 @@ fun InputTabScreen(
                                 }
                             }
                         }
-
                         var monthExpanded by remember { mutableStateOf(false) }
                         ExposedDropdownMenuBox(
                             expanded = monthExpanded,
@@ -445,7 +432,6 @@ fun InputTabScreen(
                             }
                         }
                     }
-
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -500,7 +486,6 @@ fun InputTabScreen(
             DatePicker(state = datePickerState)
         }
     }
-
     if (showLandTimePicker) {
         TimeSelectionDialog(
             initialHour = landHours,
@@ -513,7 +498,6 @@ fun InputTabScreen(
             }
         )
     }
-
     if (showSeaTimePicker) {
         TimeSelectionDialog(
             initialHour = seaHours,
@@ -541,7 +525,6 @@ fun TimeSelectionDialog(
         initialMinute = initialMinute,
         is24Hour = true
     )
-
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
@@ -610,7 +593,6 @@ fun StatisticsTabScreen(
         }
     }
 
-    // Подбор действующего тарифа с учетом выбранной даты
     val activeTariff = remember(tariffs, selectedYear, selectedMonth) {
         val monthForSearch = if (selectedMonth == 0) 12 else selectedMonth
         CalculationEngine.getActiveTariff(tariffs, selectedYear, monthForSearch)
@@ -675,7 +657,6 @@ fun StatisticsTabScreen(
                                 }
                             }
                         }
-
                         var monthExpanded by remember { mutableStateOf(false) }
                         ExposedDropdownMenuBox(
                             expanded = monthExpanded,
@@ -711,22 +692,12 @@ fun StatisticsTabScreen(
         }
 
         item {
-                item {
-            val currentTariff = tariffs.firstOrNull() ?: TariffEntity(
-                effectiveFromYear = 2026,
-                effectiveFromMonth = 7,
-                landHourlyRate = 1180.0,
-                seaHourlyRate = 5964.0,
-                dutyDayRate = 1952.0
-            )
-            val currentDuty = dutyRecords.find { it.year == selectedYear && it.month == selectedMonth }
-
             SummaryCard(
-                report = monthlyReport,
-                dutyDays = currentDuty?.dutyDays ?: 0,
+                report = report,
+                dutyDays = selectedDuty.dutyDays,
                 monthlyFlights = filteredFlights,
-                monthlyDuty = currentDuty,
-                currentTariff = currentTariff,
+                monthlyDuty = selectedDuty,
+                currentTariff = activeTariff,
                 selectedYear = selectedYear,
                 selectedMonth = selectedMonth
             )
@@ -761,7 +732,6 @@ fun SummaryCard(
     selectedMonth: Int
 ) {
     val context = LocalContext.current
-
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     ) { uri ->
@@ -799,7 +769,6 @@ fun SummaryCard(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
-
             if (dutyDays > 0) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
@@ -809,12 +778,10 @@ fun SummaryCard(
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.9f)
                 )
             }
-
             Spacer(modifier = Modifier.height(12.dp))
             HorizontalDivider(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f))
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Главные показатели
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -832,7 +799,6 @@ fun SummaryCard(
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
-
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
                         text = "Полетных дней",
@@ -847,10 +813,8 @@ fun SummaryCard(
                     )
                 }
             }
-
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Раздельная детализация по типам полета
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -868,7 +832,6 @@ fun SummaryCard(
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
-
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
                         text = "Море",
@@ -883,10 +846,8 @@ fun SummaryCard(
                     )
                 }
             }
-
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Кнопка экспорта в Excel
             Button(
                 onClick = { 
                     exportLauncher.launch("Отчет_налет_${selectedYear}_${selectedMonth}.xlsx") 
@@ -902,7 +863,6 @@ fun SummaryCard(
     }
 }
 
-
 @Composable
 fun FlightRowItem(
     flight: FlightEntity,
@@ -910,7 +870,6 @@ fun FlightRowItem(
     onDelete: () -> Unit
 ) {
     val dateStr = formatDate(flight.dateTimestamp)
-
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -1125,5 +1084,4 @@ fun Number?.minutesToHoursAndMinutes(): String {
     val hours = totalMinutes / 60
     val minutes = totalMinutes % 60
     return String.format("%d ч %02d мин", hours, minutes)
-}
 }
