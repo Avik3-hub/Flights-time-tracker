@@ -757,7 +757,7 @@ fun SummaryCard(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "Итоговая выплата (с вычетом 13% НДФЛ)",
+                text = "Итоговая выплата (включая дежурство и с вычетом 13% НДФЛ)",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
             )
@@ -770,7 +770,7 @@ fun SummaryCard(
             if (dutyDays > 0) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "За дежурства ($dutyDays дн.): ${String.format("%.2f", report.dutyPayment)} ₽",
+                    text = "За дежурство ($dutyDays дн.): ${String.format("%.2f", report.dutyPayment)} ₽",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.9f)
