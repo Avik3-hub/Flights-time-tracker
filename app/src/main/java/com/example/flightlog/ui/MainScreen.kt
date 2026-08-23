@@ -36,7 +36,6 @@ import java.text.SimpleDateFormat
 import java.util.*
 import kotlinx.coroutines.launch
 
-
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun MainScreen(
@@ -120,6 +119,7 @@ fun MainScreen(
                     text = { Text("Статистика и история", fontWeight = FontWeight.Bold) }
                 )
             }
+
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize()
@@ -146,6 +146,7 @@ fun MainScreen(
             }
         }
     }
+
     flightToEdit?.let { flight ->
         EditFlightDialog(
             flight = flight,
@@ -168,16 +169,30 @@ fun InputTabScreen(
 ) {
     var selectedDateMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var showDatePicker by remember { mutableStateOf(false) }
+
     var aircraftNumber by remember { mutableStateOf("") }
     var captain by remember { mutableStateOf("") }
     var missionNumber by remember { mutableStateOf("") }
+
     var landHours by remember { mutableIntStateOf(0) }
     var landMinutes by remember { mutableIntStateOf(0) }
     var showLandTimePicker by remember { mutableStateOf(false) }
+
     var seaHours by remember { mutableIntStateOf(0) }
     var seaMinutes by remember { mutableIntStateOf(0) }
     var showSeaTimePicker by remember { mutableStateOf(false) }
 
+    // Список и состояние выпадающего меню для № ВС
+    val aircraftOptions = remember(flights) {
+        flights.map { it.aircraftNumber }.filter { it.isNotBlank() }.distinct()
+    }
+    var aircraftExpanded by remember { mutableStateOf(false) }
+    val filteredAircrafts = remember(aircraftNumber, aircraftOptions) {
+        if (aircraftNumber.isBlank()) aircraftOptions
+        else aircraftOptions.filter { it.contains(aircraftNumber, ignoreCase = true) }
+    }
+
+    // Список и состояние выпадающего меню для ФИО КВС
     val captainOptions = remember(flights) {
         flights.map { it.captain }.filter { it.isNotBlank() }.distinct()
     }
@@ -226,6 +241,7 @@ fun InputTabScreen(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
+
                     OutlinedTextField(
                         value = formatDate(selectedDateMillis),
                         onValueChange = {},
@@ -240,18 +256,46 @@ fun InputTabScreen(
                             .fillMaxWidth()
                             .clickable { showDatePicker = true }
                     )
+
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        OutlinedTextField(
-                            value = aircraftNumber,
-                            onValueChange = { aircraftNumber = it },
-                            label = { Text("№ ВС") },
-                            modifier = Modifier.weight(1f),
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                        )
+                        // Выпадающий список для № ВС
+                        ExposedDropdownMenuBox(
+                            expanded = aircraftExpanded && filteredAircrafts.isNotEmpty(),
+                            onExpandedChange = { aircraftExpanded = !aircraftExpanded },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            OutlinedTextField(
+                                value = aircraftNumber,
+                                onValueChange = {
+                                    aircraftNumber = it
+                                    aircraftExpanded = true
+                                },
+                                label = { Text("№ ВС") },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .menuAnchor(),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                            )
+                            ExposedDropdownMenu(
+                                expanded = aircraftExpanded && filteredAircrafts.isNotEmpty(),
+                                onDismissRequest = { aircraftExpanded = false }
+                            ) {
+                                filteredAircrafts.forEach { option ->
+                                    DropdownMenuItem(
+                                        text = { Text(option) },
+                                        onClick = {
+                                            aircraftNumber = option
+                                            aircraftExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
                         OutlinedTextField(
                             value = missionNumber,
                             onValueChange = { missionNumber = it },
@@ -260,6 +304,8 @@ fun InputTabScreen(
                             singleLine = true
                         )
                     }
+
+                    // Выпадающий список для КВС
                     ExposedDropdownMenuBox(
                         expanded = captainExpanded && filteredCaptains.isNotEmpty(),
                         onExpandedChange = { captainExpanded = !captainExpanded }
@@ -291,6 +337,7 @@ fun InputTabScreen(
                             }
                         }
                     }
+
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -309,6 +356,7 @@ fun InputTabScreen(
                                 .weight(1f)
                                 .clickable { showLandTimePicker = true }
                         )
+
                         OutlinedTextField(
                             value = String.format("%02d:%02d", seaHours, seaMinutes),
                             onValueChange = {},
@@ -324,6 +372,7 @@ fun InputTabScreen(
                                 .clickable { showSeaTimePicker = true }
                         )
                     }
+
                     Button(
                         onClick = {
                             if (aircraftNumber.isNotBlank()) {
@@ -355,6 +404,7 @@ fun InputTabScreen(
                 }
             }
         }
+
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -371,6 +421,7 @@ fun InputTabScreen(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -404,6 +455,7 @@ fun InputTabScreen(
                                 }
                             }
                         }
+
                         var monthExpanded by remember { mutableStateOf(false) }
                         ExposedDropdownMenuBox(
                             expanded = monthExpanded,
@@ -434,6 +486,7 @@ fun InputTabScreen(
                             }
                         }
                     }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -468,6 +521,7 @@ fun InputTabScreen(
             }
         }
     }
+
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = selectedDateMillis)
         DatePickerDialog(
@@ -487,6 +541,7 @@ fun InputTabScreen(
             DatePicker(state = datePickerState)
         }
     }
+
     if (showLandTimePicker) {
         TimeSelectionDialog(
             initialHour = landHours,
@@ -499,6 +554,7 @@ fun InputTabScreen(
             }
         )
     }
+
     if (showSeaTimePicker) {
         TimeSelectionDialog(
             initialHour = seaHours,
@@ -659,6 +715,7 @@ fun StatisticsTabScreen(
                                 }
                             }
                         }
+
                         var monthExpanded by remember { mutableStateOf(false) }
                         ExposedDropdownMenuBox(
                             expanded = monthExpanded,
@@ -692,6 +749,7 @@ fun StatisticsTabScreen(
                 }
             }
         }
+
         item {
             SummaryCard(
                 report = report,
@@ -703,6 +761,7 @@ fun StatisticsTabScreen(
                 selectedMonth = selectedMonth
             )
         }
+
         item {
             Text(
                 text = "Полеты за выбранный период (${filteredFlights.size})",
@@ -710,6 +769,7 @@ fun StatisticsTabScreen(
                 fontWeight = FontWeight.Bold
             )
         }
+
         items(filteredFlights) { flight ->
             FlightRowItem(
                 flight = flight,
@@ -749,6 +809,7 @@ fun SummaryCard(
             }
         }
     }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -767,6 +828,7 @@ fun SummaryCard(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
+
             if (dutyDays > 0) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
@@ -776,9 +838,11 @@ fun SummaryCard(
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.9f)
                 )
             }
+
             Spacer(modifier = Modifier.height(12.dp))
             HorizontalDivider(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f))
             Spacer(modifier = Modifier.height(12.dp))
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -810,7 +874,9 @@ fun SummaryCard(
                     )
                 }
             }
+
             Spacer(modifier = Modifier.height(12.dp))
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -842,7 +908,9 @@ fun SummaryCard(
                     )
                 }
             }
+
             Spacer(modifier = Modifier.height(16.dp))
+
             Button(
                 onClick = { 
                     exportLauncher.launch("Отчет_налет_${selectedYear}_${selectedMonth}.xlsx") 
@@ -923,12 +991,15 @@ fun EditFlightDialog(
 ) {
     var dateMillis by remember { mutableLongStateOf(flight.dateTimestamp) }
     var showDatePicker by remember { mutableStateOf(false) }
+
     var aircraftNumber by remember { mutableStateOf(flight.aircraftNumber) }
     var captain by remember { mutableStateOf(flight.captain) }
     var missionNumber by remember { mutableStateOf(flight.missionNumber ?: "") }
+
     var landHours by remember { mutableIntStateOf(flight.landTimeMinutes / 60) }
     var landMinutes by remember { mutableIntStateOf(flight.landTimeMinutes % 60) }
     var showLandTimePicker by remember { mutableStateOf(false) }
+
     var seaHours by remember { mutableIntStateOf(flight.seaTimeMinutes / 60) }
     var seaMinutes by remember { mutableIntStateOf(flight.seaTimeMinutes % 60) }
     var showSeaTimePicker by remember { mutableStateOf(false) }
@@ -1017,6 +1088,7 @@ fun EditFlightDialog(
             }
         }
     )
+
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = dateMillis)
         DatePickerDialog(
@@ -1036,6 +1108,7 @@ fun EditFlightDialog(
             DatePicker(state = datePickerState)
         }
     }
+
     if (showLandTimePicker) {
         TimeSelectionDialog(
             initialHour = landHours,
@@ -1048,6 +1121,7 @@ fun EditFlightDialog(
             }
         )
     }
+
     if (showSeaTimePicker) {
         TimeSelectionDialog(
             initialHour = seaHours,
