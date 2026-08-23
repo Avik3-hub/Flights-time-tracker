@@ -711,7 +711,16 @@ fun StatisticsTabScreen(
         }
 
         item {
-            SummaryCard(report = report, dutyDays = selectedDuty.dutyDays)
+            SummaryCard(
+    report = monthlyReport,
+    dutyDays = monthlyDuty?.dutyDays ?: 0,
+    monthlyFlights = monthlyFlights,
+    monthlyDuty = monthlyDuty,
+    currentTariff = currentTariff,
+    selectedYear = selectedYear,
+    selectedMonth = selectedMonth
+)
+
         }
 
         item {
@@ -732,7 +741,6 @@ fun StatisticsTabScreen(
     }
 }
 
-@Composable
 @Composable
 fun SummaryCard(
     report: MonthlyReport,
