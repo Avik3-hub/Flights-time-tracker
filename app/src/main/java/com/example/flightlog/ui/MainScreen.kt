@@ -711,16 +711,25 @@ fun StatisticsTabScreen(
         }
 
         item {
-            SummaryCard(
-    report = monthlyReport,
-    dutyDays = monthlyDuty?.dutyDays ?: 0,
-    monthlyFlights = monthlyFlights,
-    monthlyDuty = monthlyDuty,
-    currentTariff = currentTariff,
-    selectedYear = selectedYear,
-    selectedMonth = selectedMonth
-)
+                item {
+            val currentTariff = tariffs.firstOrNull() ?: TariffEntity(
+                effectiveFromYear = 2026,
+                effectiveFromMonth = 7,
+                landHourlyRate = 1180.0,
+                seaHourlyRate = 5964.0,
+                dutyDayRate = 1952.0
+            )
+            val currentDuty = dutyRecords.find { it.year == selectedYear && it.month == selectedMonth }
 
+            SummaryCard(
+                report = monthlyReport,
+                dutyDays = currentDuty?.dutyDays ?: 0,
+                monthlyFlights = filteredFlights,
+                monthlyDuty = currentDuty,
+                currentTariff = currentTariff,
+                selectedYear = selectedYear,
+                selectedMonth = selectedMonth
+            )
         }
 
         item {
