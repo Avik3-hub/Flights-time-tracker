@@ -1,5 +1,6 @@
 package com.example.flightlog.ui
 
+import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -16,6 +17,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -26,11 +28,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.flightlog.data.db.DutyEntity
+import com.example.flightlog.data.db.ExcelImporter
 import com.example.flightlog.data.db.FlightEntity
 import com.example.flightlog.data.db.TariffEntity
 import com.example.flightlog.data.export.ExcelExporter
 import com.example.flightlog.domain.CalculationEngine
 import com.example.flightlog.domain.MonthlyReport
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -134,13 +138,16 @@ fun MainScreen(
                         dutyRecords = dutyRecords,
                         tariffs = tariffs,
                         onEditFlight = { flightToEdit = it },
-                        onDeleteFlight = onDeleteFlight
+                        onDeleteFlight = onDeleteFlight,
+                        onImportSuccess = { importedFlights, importedDuties ->
+                            importedFlights.forEach { onAddFlight(it) }
+                            importedDuties.forEach { onSaveDuty(it) }
+                        }
                     )
                 }
             }
         }
     }
-
     flightToEdit?.let { flight ->
         EditFlightDialog(
             flight = flight,
@@ -163,15 +170,12 @@ fun InputTabScreen(
 ) {
     var selectedDateMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var showDatePicker by remember { mutableStateOf(false) }
-
     var aircraftNumber by remember { mutableStateOf("") }
     var captain by remember { mutableStateOf("") }
     var missionNumber by remember { mutableStateOf("") }
-
     var landHours by remember { mutableIntStateOf(0) }
     var landMinutes by remember { mutableIntStateOf(0) }
     var showLandTimePicker by remember { mutableStateOf(false) }
-
     var seaHours by remember { mutableIntStateOf(0) }
     var seaMinutes by remember { mutableIntStateOf(0) }
     var showSeaTimePicker by remember { mutableStateOf(false) }
@@ -466,7 +470,6 @@ fun InputTabScreen(
             }
         }
     }
-
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = selectedDateMillis)
         DatePickerDialog(
@@ -552,8 +555,27 @@ fun StatisticsTabScreen(
     dutyRecords: List<DutyEntity>,
     tariffs: List<TariffEntity>,
     onEditFlight: (FlightEntity) -> Unit,
-    onDeleteFlight: (Long) -> Unit
+    onDeleteFlight: (Long) -> Unit,
+    onImportSuccess: (List<FlightEntity>, List<DutyEntity>) -> Unit = { _, _ -> }
 ) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let { fileUri ->
+            coroutineScope.launch(Dispatchers.IO) {
+                try {
+                    val result = ExcelImporter.importFromExcel(context, fileUri)
+                    onImportSuccess(result.flights, result.duties)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+    }
+
     val currentCalendar = remember { Calendar.getInstance() }
     var selectedYear by remember { mutableIntStateOf(currentCalendar.get(Calendar.YEAR)) }
     var selectedMonth by remember { mutableIntStateOf(currentCalendar.get(Calendar.MONTH) + 1) }
@@ -568,12 +590,10 @@ fun StatisticsTabScreen(
         if (!years.contains(currYr)) years.add(0, currYr)
         years
     }
-
     val monthNames = listOf(
         "Весь год", "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
         "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
     )
-
     val filteredFlights = remember(flights, selectedYear, selectedMonth) {
         flights.filter { flight ->
             val cal = Calendar.getInstance().apply { timeInMillis = flight.dateTimestamp }
@@ -582,7 +602,6 @@ fun StatisticsTabScreen(
             yearMatches && monthMatches
         }
     }
-
     val selectedDuty = remember(dutyRecords, selectedYear, selectedMonth) {
         if (selectedMonth == 0) {
             val totalDays = dutyRecords.filter { it.year == selectedYear }.sumOf { it.dutyDays }
@@ -592,7 +611,6 @@ fun StatisticsTabScreen(
                 ?: DutyEntity(month = selectedMonth, year = selectedYear, dutyDays = 0)
         }
     }
-
     val activeTariff = remember(tariffs, selectedYear, selectedMonth) {
         val monthForSearch = if (selectedMonth == 0) 12 else selectedMonth
         CalculationEngine.getActiveTariff(tariffs, selectedYear, monthForSearch)
@@ -604,7 +622,6 @@ fun StatisticsTabScreen(
                 dutyDayRate = 0.0
             )
     }
-
     val report: MonthlyReport = remember(filteredFlights, selectedDuty, activeTariff) {
         CalculationEngine.calculateMonthlyReport(
             filteredFlights,
@@ -690,7 +707,26 @@ fun StatisticsTabScreen(
                 }
             }
         }
-
+        item {
+            Button(
+                onClick = {
+                    filePickerLauncher.launch(
+                        arrayOf(
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            "application/vnd.ms-excel"
+                        )
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondary
+                )
+            ) {
+                Icon(Icons.Default.FileUpload, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Импортировать данные из Excel")
+            }
+        }
         item {
             SummaryCard(
                 report = report,
@@ -702,7 +738,6 @@ fun StatisticsTabScreen(
                 selectedMonth = selectedMonth
             )
         }
-
         item {
             Text(
                 text = "Полеты за выбранный период (${filteredFlights.size})",
@@ -710,7 +745,6 @@ fun StatisticsTabScreen(
                 fontWeight = FontWeight.Bold
             )
         }
-
         items(filteredFlights) { flight ->
             FlightRowItem(
                 flight = flight,
@@ -750,7 +784,6 @@ fun SummaryCard(
             }
         }
     }
-
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -781,7 +814,6 @@ fun SummaryCard(
             Spacer(modifier = Modifier.height(12.dp))
             HorizontalDivider(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f))
             Spacer(modifier = Modifier.height(12.dp))
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -814,7 +846,6 @@ fun SummaryCard(
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -847,7 +878,6 @@ fun SummaryCard(
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
-
             Button(
                 onClick = { 
                     exportLauncher.launch("Отчет_налет_${selectedYear}_${selectedMonth}.xlsx") 
@@ -928,15 +958,12 @@ fun EditFlightDialog(
 ) {
     var dateMillis by remember { mutableLongStateOf(flight.dateTimestamp) }
     var showDatePicker by remember { mutableStateOf(false) }
-
     var aircraftNumber by remember { mutableStateOf(flight.aircraftNumber) }
     var captain by remember { mutableStateOf(flight.captain) }
     var missionNumber by remember { mutableStateOf(flight.missionNumber ?: "") }
-
     var landHours by remember { mutableIntStateOf(flight.landTimeMinutes / 60) }
     var landMinutes by remember { mutableIntStateOf(flight.landTimeMinutes % 60) }
     var showLandTimePicker by remember { mutableStateOf(false) }
-
     var seaHours by remember { mutableIntStateOf(flight.seaTimeMinutes / 60) }
     var seaMinutes by remember { mutableIntStateOf(flight.seaTimeMinutes % 60) }
     var showSeaTimePicker by remember { mutableStateOf(false) }
@@ -1025,7 +1052,6 @@ fun EditFlightDialog(
             }
         }
     )
-
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = dateMillis)
         DatePickerDialog(
@@ -1045,7 +1071,6 @@ fun EditFlightDialog(
             DatePicker(state = datePickerState)
         }
     }
-
     if (showLandTimePicker) {
         TimeSelectionDialog(
             initialHour = landHours,
@@ -1058,7 +1083,6 @@ fun EditFlightDialog(
             }
         )
     }
-
     if (showSeaTimePicker) {
         TimeSelectionDialog(
             initialHour = seaHours,
