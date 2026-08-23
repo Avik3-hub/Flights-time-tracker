@@ -1126,3 +1126,4 @@ fun Number?.minutesToHoursAndMinutes(): String {
     val minutes = totalMinutes % 60
     return String.format("%d ч %02d мин", hours, minutes)
 }
+}
