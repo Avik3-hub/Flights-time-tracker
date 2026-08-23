@@ -3,7 +3,6 @@ package com.example.flightlog.data.db
 import android.content.Context
 import android.net.Uri
 import org.dhatim.fastexcel.reader.ReadableWorkbook
-import org.dhatim.fastexcel.reader.Sheet
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -21,19 +20,19 @@ object ExcelImporter {
 
         context.contentResolver.openInputStream(uri)?.use { inputStream ->
             ReadableWorkbook(inputStream).use { workbook ->
-                // Проходим по всем листам (месяцам) файла с явным указанием типа Sheet
-                workbook.sheets().forEach { sheet: Sheet ->
+                // workbook.sheets возвращает Stream<Sheet> (без скобок ())
+                workbook.sheets.forEach { sheet ->
                     val sheetName = sheet.name.trim()
                     var sheetMonth = getMonthIndex(sheetName)
                     var sheetYear = 2026
 
                     var dutyDaysForMonth = 0
 
-                    // Читаем список строк напрямую через read(), избегая проблем с Java Stream
+                    // Читаем список строк напрямую через read()
                     val rows = sheet.read()
                     for (row in rows) {
-                        // Пропускаем заголовок таблицы (первую строку)
-                        if (row.rowNumber > 1) {
+                        // В FastExcel номер строки доступен через row.rowNum
+                        if (row.rowNum > 1) {
                             // Порядок колонок (0 — Дата, 1 — Борт, 2 — Земля, 3 — Море, 4 — КВС, 5 — Задание, 6 — Варандей)
                             val dateStr = row.getCellAsString(0).orElse("").trim()
                             val aircraftNum = row.getCellAsString(1).orElse("").trim()
