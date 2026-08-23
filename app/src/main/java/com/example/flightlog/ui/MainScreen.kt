@@ -561,19 +561,36 @@ fun StatisticsTabScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val filePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        uri?.let { fileUri ->
-            coroutineScope.launch(Dispatchers.IO) {
-                try {
-                    val result = ExcelImporter.importFromExcel(context, fileUri)
+    contract = ActivityResultContracts.OpenDocument()
+) { uri: Uri? ->
+    uri?.let { fileUri ->
+        coroutineScope.launch(Dispatchers.IO) {
+            try {
+                val result = ExcelImporter.importFromExcel(context, fileUri)
+                
+                // Возвращаемся в главный поток для обновления UI
+                kotlinx.coroutines.withContext(Dispatchers.Main) {
                     onImportSuccess(result.flights, result.duties)
-                } catch (e: Exception) {
-                    e.printStackTrace()
+                    Toast.makeText(
+                        context, 
+                        "Импортировано полетов: ${result.flights.size}", 
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                kotlinx.coroutines.withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        context, 
+                        "Ошибка при чтении файла", 
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
             }
         }
     }
+}
+
     val currentCalendar = remember { Calendar.getInstance() }
     var selectedYear by remember { mutableIntStateOf(currentCalendar.get(Calendar.YEAR)) }
     var selectedMonth by remember { mutableIntStateOf(currentCalendar.get(Calendar.MONTH) + 1) }
