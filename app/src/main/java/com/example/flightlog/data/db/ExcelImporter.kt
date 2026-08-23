@@ -3,6 +3,7 @@ package com.example.flightlog.data.db
 import android.content.Context
 import android.net.Uri
 import org.dhatim.fastexcel.reader.ReadableWorkbook
+import org.dhatim.fastexcel.reader.Sheet
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -20,8 +21,8 @@ object ExcelImporter {
 
         context.contentResolver.openInputStream(uri)?.use { inputStream ->
             ReadableWorkbook(inputStream).use { workbook ->
-                // Проходим по всем листам (месяцам) файла
-                workbook.sheets().forEach { sheet ->
+                // Проходим по всем листам (месяцам) файла с явным указанием типа Sheet
+                workbook.sheets().forEach { sheet: Sheet ->
                     val sheetName = sheet.name.trim()
                     var sheetMonth = getMonthIndex(sheetName)
                     var sheetYear = 2026
