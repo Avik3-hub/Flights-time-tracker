@@ -48,6 +48,7 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.8.2")
 implementation("org.dhatim:fastexcel:0.15.3")
 implementation("org.dhatim:fastexcel-reader:0.15.3")
+implementation("androidx.compose.material:material-icons-extended")
     // Jetpack Compose (BOM)
     val composeBom = platform("androidx.compose:compose-bom:2024.02.00")
     implementation(composeBom)
