@@ -30,6 +30,12 @@ import com.example.flightlog.domain.MonthlyReport
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import com.example.flightlog.data.export.ExcelExporter
+
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -727,7 +733,37 @@ fun StatisticsTabScreen(
 }
 
 @Composable
-fun SummaryCard(report: MonthlyReport, dutyDays: Int) {
+@Composable
+fun SummaryCard(
+    report: MonthlyReport,
+    dutyDays: Int,
+    monthlyFlights: List<FlightEntity>,
+    monthlyDuty: DutyEntity?,
+    currentTariff: TariffEntity,
+    selectedYear: Int,
+    selectedMonth: Int
+) {
+    val context = LocalContext.current
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    ) { uri ->
+        uri?.let {
+            val success = ExcelExporter.exportToExcel(
+                context = context,
+                uri = it,
+                flights = monthlyFlights,
+                duty = monthlyDuty,
+                tariff = currentTariff
+            )
+            if (success) {
+                Toast.makeText(context, "Отчет сохранен в Excel!", Toast.LENGTH_LONG).show()
+            } else {
+                Toast.makeText(context, "Ошибка при сохранении", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -829,6 +865,21 @@ fun SummaryCard(report: MonthlyReport, dutyDays: Int) {
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Кнопка экспорта в Excel
+            Button(
+                onClick = { 
+                    exportLauncher.launch("Отчет_налет_${selectedYear}_${selectedMonth}.xlsx") 
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondary
+                )
+            ) {
+                Text("Выгрузить отчет в Excel (.xlsx)")
             }
         }
     }
