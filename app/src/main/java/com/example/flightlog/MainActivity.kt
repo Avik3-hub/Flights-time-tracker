@@ -1,5 +1,6 @@
 package com.example.flightlog
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -13,24 +14,28 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
 import com.example.flightlog.data.db.AppDatabase
+import com.example.flightlog.data.db.*
 import com.example.flightlog.ui.MainScreen
 import com.example.flightlog.ui.SettingsScreen
 import com.example.flightlog.ui.theme.FlightLogTheme
 import kotlinx.coroutines.launch
-import com.example.flightlog.data.db.*
-
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
+        
         // Инициализация синглтона базы данных
         val db = AppDatabase.getDatabase(this)
+        
+        // Доступ к SharedPreferences для сохранения настроек
+        val prefs = getSharedPreferences("app_settings", Context.MODE_PRIVATE)
 
         setContent {
-            // Управление переключением темы
-            var isDarkTheme by remember { mutableStateOf(false) }
-
+            // Загрузка сохраненного значения темы (по умолчанию false)
+            var isDarkTheme by remember { 
+                mutableStateOf(prefs.getBoolean("is_dark_theme", false)) 
+            }
+            
             // Переключение между экранами
             var currentScreen by remember { mutableStateOf("main") }
 
@@ -50,7 +55,12 @@ class MainActivity : ComponentActivity() {
                                 dutyRecords = dutyRecords,
                                 tariffs = tariffs,
                                 isDarkTheme = isDarkTheme,
-                                onToggleTheme = { isDarkTheme = !isDarkTheme },
+                                onToggleTheme = {
+                                    val newThemeState = !isDarkTheme
+                                    isDarkTheme = newThemeState
+                                    // Сохраняем состояние темы в память устройства
+                                    prefs.edit().putBoolean("is_dark_theme", newThemeState).apply()
+                                },
                                 onAddFlight = { flight ->
                                     lifecycleScope.launch {
                                         db.flightDao().insertFlight(flight)
@@ -77,28 +87,27 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         
-    "settings" -> {
-    val currentTariff = tariffs.firstOrNull() ?: TariffEntity(
-        effectiveFromYear = 2026,
-        effectiveFromMonth = 7,
-        landHourlyRate = 1180.0,
-        seaHourlyRate = 5964.0,
-        dutyDayRate = 1952.0
-    )
-
-    SettingsScreen(
-        currentTariff = currentTariff,
-        onSaveTariff = { updatedTariff ->
-            lifecycleScope.launch {
-                db.tariffDao().insertTariff(updatedTariff)
-                currentScreen = "main"
-            }
-        },
-        onBackClick = {
-            currentScreen = "main"
-        }
-    )
-}
+                        "settings" -> {
+                            val currentTariff = tariffs.firstOrNull() ?: TariffEntity(
+                                effectiveFromYear = 2026,
+                                effectiveFromMonth = 7,
+                                landHourlyRate = 1180.0,
+                                seaHourlyRate = 5964.0,
+                                dutyDayRate = 1952.0
+                            )
+                            SettingsScreen(
+                                currentTariff = currentTariff,
+                                onSaveTariff = { updatedTariff ->
+                                    lifecycleScope.launch {
+                                        db.tariffDao().insertTariff(updatedTariff)
+                                        currentScreen = "main"
+                                    }
+                                },
+                                onBackClick = {
+                                    currentScreen = "main"
+                                }
+                            )
+                        }
                     }
                 }
             }
