@@ -167,6 +167,7 @@ fun InputTabScreen(
     onAddFlight: (FlightEntity) -> Unit,
     onSaveDuty: (DutyEntity) -> Unit
 ) {
+    val context = LocalContext.current
     var selectedDateMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var showDatePicker by remember { mutableStateOf(false) }
 
@@ -209,6 +210,7 @@ fun InputTabScreen(
     val existingDuty = remember(dutyRecords, dutyYear, dutyMonth) {
         dutyRecords.find { it.year == dutyYear && it.month == dutyMonth }
     }
+
     var dutyDaysInput by remember(existingDuty, dutyYear, dutyMonth) {
         mutableStateOf(existingDuty?.dutyDays?.toString() ?: "")
     }
@@ -261,7 +263,6 @@ fun InputTabScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        // Выпадающий список для № ВС
                         ExposedDropdownMenuBox(
                             expanded = aircraftExpanded && filteredAircrafts.isNotEmpty(),
                             onExpandedChange = { aircraftExpanded = !aircraftExpanded },
@@ -305,7 +306,6 @@ fun InputTabScreen(
                         )
                     }
 
-                    // Выпадающий список для КВС
                     ExposedDropdownMenuBox(
                         expanded = captainExpanded && filteredCaptains.isNotEmpty(),
                         onExpandedChange = { captainExpanded = !captainExpanded }
@@ -501,20 +501,27 @@ fun InputTabScreen(
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                         )
+
                         Spacer(modifier = Modifier.width(12.dp))
+
                         Button(
                             onClick = {
                                 val daysCount = dutyDaysInput.toIntOrNull() ?: 0
-                                onSaveDuty(
-                                    DutyEntity(
+                                val dutyToSave = existingDuty?.copy(dutyDays = daysCount)
+                                    ?: DutyEntity(
                                         month = dutyMonth,
                                         year = dutyYear,
                                         dutyDays = daysCount
                                     )
-                                )
+                                onSaveDuty(dutyToSave)
+                                Toast.makeText(
+                                    context,
+                                    if (existingDuty != null) "Дежурство обновлено" else "Дежурство сохранено",
+                                    Toast.LENGTH_SHORT
+                                ).show()
                             }
                         ) {
-                            Text("Сохранить")
+                            Text(if (existingDuty != null) "Обновить" else "Сохранить")
                         }
                     }
                 }
