@@ -38,12 +38,14 @@ jobs:
           git push
         fi
 
-        - name: Create GitHub Release
+    - name: Build APK
+      run: gradle assembleDebug
+
+    - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
       with:
         tag_name: "v1.2.${{ github.run_number }}"
-        name: "Flight-time-tracker v1.2.${{ github.run_number }}"
-        files: app/build/outputs/apk/debug/app-debug.apk
+        name: "FlightLog v1.2.${{ github.run_number }}"
+        files: app/build/outputs/apk/debug/*.apk
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        retention-days: 1 
