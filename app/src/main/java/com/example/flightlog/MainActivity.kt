@@ -95,18 +95,20 @@ class MainActivity : ComponentActivity() {
                                 seaHourlyRate = 5964.0,
                                 dutyDayRate = 1952.0
                             )
-                            SettingsScreen(
-                                currentTariff = currentTariff,
-                                onSaveTariff = { updatedTariff ->
-                                    lifecycleScope.launch {
-                                        db.tariffDao().insertTariff(updatedTariff)
-                                        currentScreen = "main"
-                                    }
-                                },
-                                onBackClick = {
-                                    currentScreen = "main"
-                                }
-                            )
+                        SettingsScreen(
+    currentTariff = currentTariff,
+    flightDao = db.flightDao(),
+    dutyDao = db.dutyDao(),
+    onSaveTariff = { updatedTariff ->
+        lifecycleScope.launch {
+            db.tariffDao().insertTariff(updatedTariff)
+            currentScreen = "main"
+        }
+    },
+    onBackClick = {
+        currentScreen = "main"
+    }
+)
                         }
                     }
                 }
