@@ -1,8 +1,10 @@
-package com.example.flightlog.data.db
+package com.example.flightlog.data.export
 
 import android.content.Context
 import android.net.Uri
-import org.apache.poi.ss.usermodel.Cell
+import com.example.flightlog.data.db.DutyEntity
+import com.example.flightlog.data.db.FlightEntity
+import com.example.flightlog.data.db.TariffEntity
 import org.apache.poi.ss.usermodel.CellType
 import org.apache.poi.ss.usermodel.DateUtil
 import org.apache.poi.ss.usermodel.Row
@@ -15,12 +17,14 @@ object ExcelImporter {
 
     data class ImportResult(
         val flights: List<FlightEntity>,
-        val duties: List<DutyEntity>
+        val duties: List<DutyEntity>,
+        val tariffs: List<TariffEntity> = emptyList()
     )
 
     fun importFromExcel(context: Context, uri: Uri): ImportResult {
         val flights = mutableListOf<FlightEntity>()
         val duties = mutableListOf<DutyEntity>()
+        val tariffs = mutableListOf<TariffEntity>()
 
         context.contentResolver.openInputStream(uri)?.use { inputStream ->
             val workbook = WorkbookFactory.create(inputStream)
@@ -28,11 +32,37 @@ object ExcelImporter {
             for (sheetIndex in 0 until workbook.numberOfSheets) {
                 val sheet = workbook.getSheetAt(sheetIndex)
                 val sheetName = sheet.sheetName.trim()
+
+                // 1. Считывание листа с тарифами
+                if (sheetName.equals("Тарифы", ignoreCase = true)) {
+                    for (rowIndex in 1..sheet.lastRowNum) {
+                        val row = sheet.getRow(rowIndex) ?: continue
+                        val year = getCellSafe(row, 0).toIntOrNull()
+                        val month = getCellSafe(row, 1).toIntOrNull()
+                        val landRate = getCellSafe(row, 2).toDoubleOrNull()
+                        val seaRate = getCellSafe(row, 3).toDoubleOrNull()
+                        val dutyRate = getCellSafe(row, 4).toDoubleOrNull()
+
+                        if (year != null && month != null && landRate != null && seaRate != null && dutyRate != null) {
+                            tariffs.add(
+                                TariffEntity(
+                                    effectiveFromYear = year,
+                                    effectiveFromMonth = month,
+                                    landHourlyRate = landRate,
+                                    seaHourlyRate = seaRate,
+                                    dutyDayRate = dutyRate
+                                )
+                            )
+                        }
+                    }
+                    continue // Пропускаем обработку этого листа как полётного
+                }
+
+                // 2. Считывание полетов и дежурств (обычные листы)
                 var sheetMonth = getMonthIndex(sheetName)
                 var sheetYear = 2026
                 var dutyDaysForMonth = 0
 
-                // Читаем строки со 2-й (индекс 1 в 0-based нумерации POI), пропуская заголовок
                 for (rowIndex in 1..sheet.lastRowNum) {
                     val row = sheet.getRow(rowIndex) ?: continue
                     try {
@@ -89,10 +119,9 @@ object ExcelImporter {
             workbook.close()
         }
 
-        return ImportResult(flights, duties)
+        return ImportResult(flights, duties, tariffs)
     }
 
-    // Безопасное получение значений из любых типов ячеек Excel
     private fun getCellSafe(row: Row, index: Int): String {
         val cell = row.getCell(index) ?: return ""
         return when (cell.cellType) {
