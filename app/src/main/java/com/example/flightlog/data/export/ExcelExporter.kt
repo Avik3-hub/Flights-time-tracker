@@ -28,21 +28,22 @@ object ExcelExporter {
                 // -------------------------------------------------------------
                 val sheet = workbook.newWorksheet("Отчет по налету")
 
-                sheet.width(0, 12.0) // Дата
-                sheet.width(1, 10.0) // № ВС
-                sheet.width(2, 12.0) // Задание
-                sheet.width(3, 14.0) // КВС
-                sheet.width(4, 15.0) // Земля
-                sheet.width(5, 15.0) // Море
+                sheet.width(0, 12.0) // 0: Дата
+                sheet.width(1, 10.0) // 1: № ВС
+                sheet.width(2, 12.0) // 2: Задание
+                sheet.width(3, 14.0) // 3: КВС
+                sheet.width(4, 15.0) // 4: Земля
+                sheet.width(5, 15.0) // 5: Море
+                sheet.width(6, 16.0) // 6: Дежурство
 
-                val headers = listOf("Дата", "№ ВС", "Задание", "КВС", "Земля", "Море")
+                val headers = listOf("Дата", "№ ВС", "Задание", "КВС", "Земля", "Море", "Дежурство (дн.)")
                 headers.forEachIndexed { col, title ->
                     sheet.value(0, col, title)
                     sheet.style(0, col).bold().fillColor("E0E0E0").horizontalAlignment("center").set()
                 }
 
                 var row = 1
-                flights.forEach { flight ->
+                flights.forEachIndexed { index, flight ->
                     sheet.value(row, 0, formatDate(flight.dateTimestamp))
                     sheet.value(row, 1, flight.aircraftNumber)
                     sheet.value(row, 2, flight.missionNumber ?: "")
@@ -54,6 +55,17 @@ object ExcelExporter {
                     sheet.value(row, 5, flight.seaTimeMinutes.minutesToHoursAndMinutes())
                     sheet.style(row, 5).fillColor("C6D9F1").horizontalAlignment("center").set()
 
+                    if (index == 0 && duty != null && duty.dutyDays > 0) {
+                        sheet.value(row, 6, duty.dutyDays)
+                        sheet.style(row, 6).horizontalAlignment("center").set()
+                    }
+
+                    row++
+                }
+
+                if (flights.isEmpty() && duty != null && duty.dutyDays > 0) {
+                    sheet.value(row, 6, duty.dutyDays)
+                    sheet.style(row, 6).horizontalAlignment("center").set()
                     row++
                 }
 
