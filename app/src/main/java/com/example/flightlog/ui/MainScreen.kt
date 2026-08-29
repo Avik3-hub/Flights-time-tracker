@@ -72,7 +72,7 @@ fun MainScreen(
                             onDismissRequest = { menuExpanded = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Тарифы") },
+                                text = { Text("Тарифы и бэкап") },
                                 onClick = {
                                     menuExpanded = false
                                     onSettingsClick()
