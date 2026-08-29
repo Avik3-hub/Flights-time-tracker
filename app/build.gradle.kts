@@ -72,10 +72,13 @@ dependencies {
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
     implementation("androidx.activity:activity-compose:1.8.2")
+
+    // Экспорт в Excel (оставляем для ExcelExporter.kt)
     implementation("org.dhatim:fastexcel:0.15.3")
-    implementation("org.dhatim:fastexcel-reader:0.15.3")
- // Чтение и анализ файлов Excel (.xlsx)
+
+    // Чтение и импорт файлов Excel (.xlsx)
     implementation("org.apache.poi:poi-ooxml:5.2.5")
+
     // Jetpack Compose (BOM)
     val composeBom = platform("androidx.compose:compose-bom:2024.02.00")
     implementation(composeBom)
