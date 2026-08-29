@@ -16,6 +16,10 @@ interface FlightDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertFlight(flight: FlightEntity)
 
+    // Массовый импорт полетов
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertFlights(flights: List<FlightEntity>)
+
     @Update
     suspend fun updateFlight(flight: FlightEntity)
 
@@ -46,6 +50,10 @@ interface DutyDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertDuty(duty: DutyEntity)
+
+    // Массовый импорт дежурств
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertDuties(duties: List<DutyEntity>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdate(duty: DutyEntity)
