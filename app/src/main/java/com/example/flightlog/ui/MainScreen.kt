@@ -51,6 +51,7 @@ fun MainScreen(
     onUpdateFlight: (FlightEntity) -> Unit,
     onDeleteFlight: (Long) -> Unit,
     onSaveDuty: (DutyEntity) -> Unit,
+    onSaveTariff: (TariffEntity) -> Unit = {},
     onSettingsClick: () -> Unit
 ) {
     val pagerState = rememberPagerState(pageCount = { 2 })
@@ -139,16 +140,16 @@ fun MainScreen(
                         tariffs = tariffs,
                         onEditFlight = { flightToEdit = it },
                         onDeleteFlight = onDeleteFlight,
-                        onImportSuccess = { importedFlights, importedDuties ->
+                        onImportSuccess = { importedFlights, importedDuties, importedTariffs ->
                             importedFlights.forEach { onAddFlight(it) }
                             importedDuties.forEach { onSaveDuty(it) }
+                            importedTariffs.forEach { onSaveTariff(it) }
                         }
                     )
                 }
             }
         }
     }
-
     flightToEdit?.let { flight ->
         EditFlightDialog(
             flight = flight,
@@ -172,15 +173,12 @@ fun InputTabScreen(
     val context = LocalContext.current
     var selectedDateMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var showDatePicker by remember { mutableStateOf(false) }
-
     var aircraftNumber by remember { mutableStateOf("") }
     var captain by remember { mutableStateOf("") }
     var missionNumber by remember { mutableStateOf("") }
-
     var landHours by remember { mutableIntStateOf(0) }
     var landMinutes by remember { mutableIntStateOf(0) }
     var showLandTimePicker by remember { mutableStateOf(false) }
-
     var seaHours by remember { mutableIntStateOf(0) }
     var seaMinutes by remember { mutableIntStateOf(0) }
     var showSeaTimePicker by remember { mutableStateOf(false) }
@@ -242,7 +240,6 @@ fun InputTabScreen(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
-
                     OutlinedTextField(
                         value = formatDate(selectedDateMillis),
                         onValueChange = {},
@@ -257,7 +254,6 @@ fun InputTabScreen(
                             .fillMaxWidth()
                             .clickable { showDatePicker = true }
                     )
-
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -295,7 +291,6 @@ fun InputTabScreen(
                                 }
                             }
                         }
-
                         OutlinedTextField(
                             value = missionNumber,
                             onValueChange = { missionNumber = it },
@@ -304,7 +299,6 @@ fun InputTabScreen(
                             singleLine = true
                         )
                     }
-
                     ExposedDropdownMenuBox(
                         expanded = captainExpanded && filteredCaptains.isNotEmpty(),
                         onExpandedChange = { captainExpanded = !captainExpanded }
@@ -336,7 +330,6 @@ fun InputTabScreen(
                             }
                         }
                     }
-
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -355,7 +348,6 @@ fun InputTabScreen(
                                 .weight(1f)
                                 .clickable { showLandTimePicker = true }
                         )
-
                         OutlinedTextField(
                             value = String.format("%02d:%02d", seaHours, seaMinutes),
                             onValueChange = {},
@@ -371,7 +363,6 @@ fun InputTabScreen(
                                 .clickable { showSeaTimePicker = true }
                         )
                     }
-
                     Button(
                         onClick = {
                             if (aircraftNumber.isNotBlank()) {
@@ -403,7 +394,6 @@ fun InputTabScreen(
                 }
             }
         }
-
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -420,7 +410,6 @@ fun InputTabScreen(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
-
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -454,7 +443,6 @@ fun InputTabScreen(
                                 }
                             }
                         }
-
                         var monthExpanded by remember { mutableStateOf(false) }
                         ExposedDropdownMenuBox(
                             expanded = monthExpanded,
@@ -485,7 +473,6 @@ fun InputTabScreen(
                             }
                         }
                     }
-
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -525,7 +512,6 @@ fun InputTabScreen(
             }
         }
     }
-
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = selectedDateMillis)
         DatePickerDialog(
@@ -545,7 +531,6 @@ fun InputTabScreen(
             DatePicker(state = datePickerState)
         }
     }
-
     if (showLandTimePicker) {
         TimeSelectionDialog(
             initialHour = landHours,
@@ -558,7 +543,6 @@ fun InputTabScreen(
             }
         )
     }
-
     if (showSeaTimePicker) {
         TimeSelectionDialog(
             initialHour = seaHours,
@@ -614,18 +598,15 @@ fun StatisticsTabScreen(
     tariffs: List<TariffEntity>,
     onEditFlight: (FlightEntity) -> Unit,
     onDeleteFlight: (Long) -> Unit,
-    onImportSuccess: (List<FlightEntity>, List<DutyEntity>) -> Unit = { _, _ -> }
+    onImportSuccess: (List<FlightEntity>, List<DutyEntity>, List<TariffEntity>) -> Unit = { _, _, _ -> }
 ) {
     val currentCalendar = remember { Calendar.getInstance() }
     var selectedYear by remember { mutableIntStateOf(currentCalendar.get(Calendar.YEAR)) }
     var selectedMonth by remember { mutableIntStateOf(currentCalendar.get(Calendar.MONTH) + 1) }
-
     var startDay by remember { mutableStateOf<Int?>(null) }
     var endDay by remember { mutableStateOf<Int?>(null) }
-
     var startDropdownExpanded by remember { mutableStateOf(false) }
     var endDropdownExpanded by remember { mutableStateOf(false) }
-
     val daysOptions = remember { listOf(null) + (1..31).toList() }
 
     val yearsList = remember(flights, dutyRecords) {
@@ -638,7 +619,6 @@ fun StatisticsTabScreen(
         if (!years.contains(currYr)) years.add(0, currYr)
         years
     }
-
     val monthNames = listOf(
         "Весь год", "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
         "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
@@ -731,7 +711,6 @@ fun StatisticsTabScreen(
                                 }
                             }
                         }
-
                         var monthExpanded by remember { mutableStateOf(false) }
                         ExposedDropdownMenuBox(
                             expanded = monthExpanded,
@@ -762,9 +741,7 @@ fun StatisticsTabScreen(
                             }
                         }
                     }
-
                     Spacer(modifier = Modifier.height(8.dp))
-
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -797,7 +774,6 @@ fun StatisticsTabScreen(
                                 }
                             }
                         }
-
                         ExposedDropdownMenuBox(
                             expanded = endDropdownExpanded,
                             onExpandedChange = { endDropdownExpanded = !endDropdownExpanded },
@@ -830,7 +806,6 @@ fun StatisticsTabScreen(
                 }
             }
         }
-
         item {
             SummaryCard(
                 report = report,
@@ -838,12 +813,12 @@ fun StatisticsTabScreen(
                 monthlyFlights = filteredFlights,
                 monthlyDuty = selectedDuty,
                 currentTariff = activeTariff,
+                allTariffs = tariffs,
                 selectedYear = selectedYear,
                 selectedMonth = selectedMonth,
                 onImportSuccess = onImportSuccess
             )
         }
-
         item {
             Text(
                 text = "Полеты за выбранный период (${filteredFlights.size})",
@@ -851,7 +826,6 @@ fun StatisticsTabScreen(
                 fontWeight = FontWeight.Bold
             )
         }
-
         items(filteredFlights) { flight ->
             FlightRowItem(
                 flight = flight,
@@ -869,9 +843,10 @@ fun SummaryCard(
     monthlyFlights: List<FlightEntity>,
     monthlyDuty: DutyEntity?,
     currentTariff: TariffEntity,
+    allTariffs: List<TariffEntity>,
     selectedYear: Int,
     selectedMonth: Int,
-    onImportSuccess: (List<FlightEntity>, List<DutyEntity>) -> Unit = { _, _ -> }
+    onImportSuccess: (List<FlightEntity>, List<DutyEntity>, List<TariffEntity>) -> Unit = { _, _, _ -> }
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -886,7 +861,8 @@ fun SummaryCard(
                 uri = it,
                 flights = monthlyFlights,
                 duty = monthlyDuty,
-                tariff = currentTariff
+                activeTariff = currentTariff,
+                allTariffs = allTariffs
             )
             if (success) {
                 Toast.makeText(context, "Отчет сохранен в Excel!", Toast.LENGTH_LONG).show()
@@ -904,10 +880,10 @@ fun SummaryCard(
                 try {
                     val importResult = ExcelImporter.importFromExcel(context, selectedUri)
                     withContext(Dispatchers.Main) {
-                        if (importResult.flights.isNotEmpty() || importResult.duties.isNotEmpty()) {
-                            onImportSuccess(importResult.flights, importResult.duties)
+                        if (importResult.flights.isNotEmpty() || importResult.duties.isNotEmpty() || importResult.tariffs.isNotEmpty()) {
+                            onImportSuccess(importResult.flights, importResult.duties, importResult.tariffs)
                         }
-                        val msg = "Успешно импортировано: рейсов — ${importResult.flights.size}, дежурств — ${importResult.duties.size}"
+                        val msg = "Импортировано: рейсов — ${importResult.flights.size}, дежурств — ${importResult.duties.size}, тарифов — ${importResult.tariffs.size}"
                         Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
                     }
                 } catch (e: Throwable) {
@@ -1028,9 +1004,7 @@ fun SummaryCard(
             ) {
                 Text("Выгрузить отчет в Excel (.xlsx)")
             }
-
             Spacer(modifier = Modifier.height(8.dp))
-
             OutlinedButton(
                 onClick = { showImportConfirmation = true },
                 modifier = Modifier.fillMaxWidth()
@@ -1045,7 +1019,7 @@ fun SummaryCard(
             onDismissRequest = { showImportConfirmation = false },
             title = { Text("Импорт данных") },
             text = {
-                Text("Убедитесь, что выбираете файл Excel, ранее выгруженный из этого приложения. Найденные полеты и дежурства будут добавлены в базу.\n\nПродолжить?")
+                Text("Убедитесь, что выбираете файл Excel, ранее выгруженный из этого приложения. Найденные полеты, дежурства и тарифы будут добавлены в базу.\n\nПродолжить?")
             },
             confirmButton = {
                 TextButton(
@@ -1137,15 +1111,12 @@ fun EditFlightDialog(
 ) {
     var dateMillis by remember { mutableLongStateOf(flight.dateTimestamp) }
     var showDatePicker by remember { mutableStateOf(false) }
-
     var aircraftNumber by remember { mutableStateOf(flight.aircraftNumber) }
     var captain by remember { mutableStateOf(flight.captain) }
     var missionNumber by remember { mutableStateOf(flight.missionNumber ?: "") }
-
     var landHours by remember { mutableIntStateOf(flight.landTimeMinutes / 60) }
     var landMinutes by remember { mutableIntStateOf(flight.landTimeMinutes % 60) }
     var showLandTimePicker by remember { mutableStateOf(false) }
-
     var seaHours by remember { mutableIntStateOf(flight.seaTimeMinutes / 60) }
     var seaMinutes by remember { mutableIntStateOf(flight.seaTimeMinutes % 60) }
     var showSeaTimePicker by remember { mutableStateOf(false) }
@@ -1234,7 +1205,6 @@ fun EditFlightDialog(
             }
         }
     )
-
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = dateMillis)
         DatePickerDialog(
@@ -1254,7 +1224,6 @@ fun EditFlightDialog(
             DatePicker(state = datePickerState)
         }
     }
-
     if (showLandTimePicker) {
         TimeSelectionDialog(
             initialHour = landHours,
@@ -1267,7 +1236,6 @@ fun EditFlightDialog(
             }
         )
     }
-
     if (showSeaTimePicker) {
         TimeSelectionDialog(
             initialHour = seaHours,
