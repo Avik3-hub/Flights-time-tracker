@@ -121,4 +121,62 @@ fun SettingsScreen(
             }
         }
     }
+    val context = LocalContext.current
+val coroutineScope = rememberCoroutineScope()
+
+// 1. Лаунчер для открытия проводника Android и получения URI файла
+val importExcelLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.OpenDocument()
+) { uri: Uri? ->
+    uri?.let { selectedUri ->
+        coroutineScope.launch(Dispatchers.IO) {
+            try {
+                // Вызываем написанный парсер
+                val importResult = ExcelImporter.importFromExcel(context, selectedUri)
+
+                // Сохраняем полученные списки в БД Room
+                if (importResult.flights.isNotEmpty()) {
+                    flightDao.insertFlights(importResult.flights)
+                }
+                if (importResult.duties.isNotEmpty()) {
+                    dutyDao.insertDuties(importResult.duties)
+                }
+
+                // Уведомляем пользователя на главном потоке
+                withContext(Dispatchers.Main) {
+                    val msg = "Успешно импортировано: рейсов — ${importResult.flights.size}, дежурств — ${importResult.duties.size}"
+                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        context,
+                        "Ошибка при импорте файла: ${e.localizedMessage}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+    }
+}
+
+// 2. Элемент интерфейса (кнопка) для запуска
+Button(
+    onClick = {
+        // Запрашиваем выбор файлов Excel
+        importExcelLauncher.launch(
+            arrayOf(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "application/vnd.ms-excel",
+                "*/*"
+            )
+        )
+    },
+    modifier = Modifier
+        .fillMaxWidth()
+        .padding(vertical = 8.dp)
+) {
+    Text("Импортировать резервную копию (.xlsx)")
+}
+
 }
