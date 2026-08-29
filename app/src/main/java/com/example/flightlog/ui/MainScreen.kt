@@ -875,6 +875,7 @@ fun SummaryCard(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    var showImportConfirmation by remember { mutableStateOf(false) }
 
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
@@ -1031,20 +1032,43 @@ fun SummaryCard(
             Spacer(modifier = Modifier.height(8.dp))
 
             OutlinedButton(
-                onClick = {
-                    importLauncher.launch(
-                        arrayOf(
-                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            "application/vnd.ms-excel",
-                            "*/*"
-                        )
-                    )
-                },
+                onClick = { showImportConfirmation = true },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Импортировать из Excel (.xlsx)")
             }
         }
+    }
+
+    if (showImportConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showImportConfirmation = false },
+            title = { Text("Импорт данных") },
+            text = {
+                Text("Убедитесь, что выбираете файл Excel, ранее выгруженный из этого приложения. Найденные полеты и дежурства будут добавлены в базу.\n\nПродолжить?")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showImportConfirmation = false
+                        importLauncher.launch(
+                            arrayOf(
+                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                "application/vnd.ms-excel",
+                                "*/*"
+                            )
+                        )
+                    }
+                ) {
+                    Text("Продолжить")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showImportConfirmation = false }) {
+                    Text("Отмена")
+                }
+            }
+        )
     }
 }
 
