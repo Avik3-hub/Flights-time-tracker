@@ -30,11 +30,14 @@ import com.example.flightlog.data.db.DutyEntity
 import com.example.flightlog.data.db.FlightEntity
 import com.example.flightlog.data.db.TariffEntity
 import com.example.flightlog.data.export.ExcelExporter
+import com.example.flightlog.data.export.ExcelImporter
 import com.example.flightlog.domain.CalculationEngine
 import com.example.flightlog.domain.MonthlyReport
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -239,6 +242,7 @@ fun InputTabScreen(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
+
                     OutlinedTextField(
                         value = formatDate(selectedDateMillis),
                         onValueChange = {},
@@ -253,6 +257,7 @@ fun InputTabScreen(
                             .fillMaxWidth()
                             .clickable { showDatePicker = true }
                     )
+
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -290,6 +295,7 @@ fun InputTabScreen(
                                 }
                             }
                         }
+
                         OutlinedTextField(
                             value = missionNumber,
                             onValueChange = { missionNumber = it },
@@ -298,6 +304,7 @@ fun InputTabScreen(
                             singleLine = true
                         )
                     }
+
                     ExposedDropdownMenuBox(
                         expanded = captainExpanded && filteredCaptains.isNotEmpty(),
                         onExpandedChange = { captainExpanded = !captainExpanded }
@@ -329,6 +336,7 @@ fun InputTabScreen(
                             }
                         }
                     }
+
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -347,6 +355,7 @@ fun InputTabScreen(
                                 .weight(1f)
                                 .clickable { showLandTimePicker = true }
                         )
+
                         OutlinedTextField(
                             value = String.format("%02d:%02d", seaHours, seaMinutes),
                             onValueChange = {},
@@ -362,6 +371,7 @@ fun InputTabScreen(
                                 .clickable { showSeaTimePicker = true }
                         )
                     }
+
                     Button(
                         onClick = {
                             if (aircraftNumber.isNotBlank()) {
@@ -393,6 +403,7 @@ fun InputTabScreen(
                 }
             }
         }
+
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -409,6 +420,7 @@ fun InputTabScreen(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -442,6 +454,7 @@ fun InputTabScreen(
                                 }
                             }
                         }
+
                         var monthExpanded by remember { mutableStateOf(false) }
                         ExposedDropdownMenuBox(
                             expanded = monthExpanded,
@@ -472,6 +485,7 @@ fun InputTabScreen(
                             }
                         }
                     }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -608,6 +622,7 @@ fun StatisticsTabScreen(
 
     var startDay by remember { mutableStateOf<Int?>(null) }
     var endDay by remember { mutableStateOf<Int?>(null) }
+
     var startDropdownExpanded by remember { mutableStateOf(false) }
     var endDropdownExpanded by remember { mutableStateOf(false) }
 
@@ -716,6 +731,7 @@ fun StatisticsTabScreen(
                                 }
                             }
                         }
+
                         var monthExpanded by remember { mutableStateOf(false) }
                         ExposedDropdownMenuBox(
                             expanded = monthExpanded,
@@ -746,7 +762,9 @@ fun StatisticsTabScreen(
                             }
                         }
                     }
+
                     Spacer(modifier = Modifier.height(8.dp))
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -779,6 +797,7 @@ fun StatisticsTabScreen(
                                 }
                             }
                         }
+
                         ExposedDropdownMenuBox(
                             expanded = endDropdownExpanded,
                             onExpandedChange = { endDropdownExpanded = !endDropdownExpanded },
@@ -811,6 +830,7 @@ fun StatisticsTabScreen(
                 }
             }
         }
+
         item {
             SummaryCard(
                 report = report,
@@ -819,9 +839,11 @@ fun StatisticsTabScreen(
                 monthlyDuty = selectedDuty,
                 currentTariff = activeTariff,
                 selectedYear = selectedYear,
-                selectedMonth = selectedMonth
+                selectedMonth = selectedMonth,
+                onImportSuccess = onImportSuccess
             )
         }
+
         item {
             Text(
                 text = "Полеты за выбранный период (${filteredFlights.size})",
@@ -829,6 +851,7 @@ fun StatisticsTabScreen(
                 fontWeight = FontWeight.Bold
             )
         }
+
         items(filteredFlights) { flight ->
             FlightRowItem(
                 flight = flight,
@@ -847,9 +870,12 @@ fun SummaryCard(
     monthlyDuty: DutyEntity?,
     currentTariff: TariffEntity,
     selectedYear: Int,
-    selectedMonth: Int
+    selectedMonth: Int,
+    onImportSuccess: (List<FlightEntity>, List<DutyEntity>) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     ) { uri ->
@@ -865,6 +891,33 @@ fun SummaryCard(
                 Toast.makeText(context, "Отчет сохранен в Excel!", Toast.LENGTH_LONG).show()
             } else {
                 Toast.makeText(context, "Ошибка при сохранении", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let { selectedUri ->
+            coroutineScope.launch(Dispatchers.IO) {
+                try {
+                    val importResult = ExcelImporter.importFromExcel(context, selectedUri)
+                    withContext(Dispatchers.Main) {
+                        if (importResult.flights.isNotEmpty() || importResult.duties.isNotEmpty()) {
+                            onImportSuccess(importResult.flights, importResult.duties)
+                        }
+                        val msg = "Успешно импортировано: рейсов — ${importResult.flights.size}, дежурств — ${importResult.duties.size}"
+                        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                    }
+                } catch (e: Throwable) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(
+                            context,
+                            "Ошибка при импорте: ${e.localizedMessage ?: e.javaClass.simpleName}",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
             }
         }
     }
@@ -974,6 +1027,23 @@ fun SummaryCard(
             ) {
                 Text("Выгрузить отчет в Excel (.xlsx)")
             }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OutlinedButton(
+                onClick = {
+                    importLauncher.launch(
+                        arrayOf(
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            "application/vnd.ms-excel",
+                            "*/*"
+                        )
+                    )
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Импортировать из Excel (.xlsx)")
+            }
         }
     }
 }
@@ -1043,12 +1113,15 @@ fun EditFlightDialog(
 ) {
     var dateMillis by remember { mutableLongStateOf(flight.dateTimestamp) }
     var showDatePicker by remember { mutableStateOf(false) }
+
     var aircraftNumber by remember { mutableStateOf(flight.aircraftNumber) }
     var captain by remember { mutableStateOf(flight.captain) }
     var missionNumber by remember { mutableStateOf(flight.missionNumber ?: "") }
+
     var landHours by remember { mutableIntStateOf(flight.landTimeMinutes / 60) }
     var landMinutes by remember { mutableIntStateOf(flight.landTimeMinutes % 60) }
     var showLandTimePicker by remember { mutableStateOf(false) }
+
     var seaHours by remember { mutableIntStateOf(flight.seaTimeMinutes / 60) }
     var seaMinutes by remember { mutableIntStateOf(flight.seaTimeMinutes % 60) }
     var showSeaTimePicker by remember { mutableStateOf(false) }
