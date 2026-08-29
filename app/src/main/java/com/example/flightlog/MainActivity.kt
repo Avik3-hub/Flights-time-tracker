@@ -97,8 +97,6 @@ class MainActivity : ComponentActivity() {
                             )
                         SettingsScreen(
     currentTariff = currentTariff,
-    flightDao = db.flightDao(),
-    dutyDao = db.dutyDao(),
     onSaveTariff = { updatedTariff ->
         lifecycleScope.launch {
             db.tariffDao().insertTariff(updatedTariff)
