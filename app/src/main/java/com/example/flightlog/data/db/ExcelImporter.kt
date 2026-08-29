@@ -33,7 +33,7 @@ object ExcelImporter {
                 val sheet = workbook.getSheetAt(sheetIndex)
                 val sheetName = sheet.sheetName.trim()
 
-                // 1. Считывание листа с тарифами
+                // 1. Чтение тарифов
                 if (sheetName.equals("Тарифы", ignoreCase = true)) {
                     for (rowIndex in 1..sheet.lastRowNum) {
                         val row = sheet.getRow(rowIndex) ?: continue
@@ -55,10 +55,10 @@ object ExcelImporter {
                             )
                         }
                     }
-                    continue // Пропускаем обработку этого листа как полётного
+                    continue
                 }
 
-                // 2. Считывание полетов и дежурств (обычные листы)
+                // 2. Чтение полетов и дежурств
                 var sheetMonth = getMonthIndex(sheetName)
                 var sheetYear = 2026
                 var dutyDaysForMonth = 0
@@ -68,10 +68,10 @@ object ExcelImporter {
                     try {
                         val dateStr = getCellSafe(row, 0)
                         val aircraftNum = getCellSafe(row, 1)
-                        val landHoursStr = getCellSafe(row, 2)
-                        val seaHoursStr = getCellSafe(row, 3)
-                        val captain = getCellSafe(row, 4)
-                        val missionNum = getCellSafe(row, 5)
+                        val missionNum = getCellSafe(row, 2)
+                        val captain = getCellSafe(row, 3)
+                        val landHoursStr = getCellSafe(row, 4)
+                        val seaHoursStr = getCellSafe(row, 5)
                         val dutyCellStr = getCellSafe(row, 6)
 
                         val dutyDaysInRow = dutyCellStr.toIntOrNull() ?: 0
@@ -154,15 +154,32 @@ object ExcelImporter {
 
     private fun parseTimeToMinutes(timeStr: String): Int {
         if (timeStr.isBlank()) return 0
-        return if (timeStr.contains(":")) {
-            val parts = timeStr.split(":")
+        val clean = timeStr.trim().lowercase()
+
+        // 1. Формат "ЧЧ:ММ"
+        if (clean.contains(":")) {
+            val parts = clean.split(":")
             val h = parts.getOrNull(0)?.toIntOrNull() ?: 0
             val m = parts.getOrNull(1)?.toIntOrNull() ?: 0
-            h * 60 + m
-        } else {
-            val doubleHours = timeStr.toDoubleOrNull() ?: 0.0
-            (doubleHours * 60).toInt()
+            return h * 60 + m
         }
+
+        // 2. Текстовый формат "X ч Y мин" / "Xч Yмин"
+        val hoursRegex = Regex("""(\d+)\s*ч""")
+        val minsRegex = Regex("""(\d+)\s*мин""")
+        val hMatch = hoursRegex.find(clean)
+        val mMatch = minsRegex.find(clean)
+
+        if (hMatch != null || mMatch != null) {
+            val hours = hMatch?.groupValues?.get(1)?.toIntOrNull() ?: 0
+            val minutes = mMatch?.groupValues?.get(1)?.toIntOrNull() ?: 0
+            return hours * 60 + minutes
+        }
+
+        // 3. Десятичные числа
+        val normalizedDouble = clean.replace(',', '.')
+        val doubleHours = normalizedDouble.toDoubleOrNull() ?: 0.0
+        return (doubleHours * 60).toInt()
     }
 
     private fun parseDateToTimestamp(dateStr: String): Long {
