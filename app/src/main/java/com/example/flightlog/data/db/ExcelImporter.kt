@@ -2,7 +2,11 @@ package com.example.flightlog.data.db
 
 import android.content.Context
 import android.net.Uri
-import org.dhatim.fastexcel.reader.ReadableWorkbook
+import org.apache.poi.ss.usermodel.Cell
+import org.apache.poi.ss.usermodel.CellType
+import org.apache.poi.ss.usermodel.DateUtil
+import org.apache.poi.ss.usermodel.Row
+import org.apache.poi.ss.usermodel.WorkbookFactory
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -19,79 +23,103 @@ object ExcelImporter {
         val duties = mutableListOf<DutyEntity>()
 
         context.contentResolver.openInputStream(uri)?.use { inputStream ->
-            ReadableWorkbook(inputStream).use { workbook ->
-                workbook.sheets.forEach { sheet ->
-                    val sheetName = sheet.name.trim()
-                    var sheetMonth = getMonthIndex(sheetName)
-                    var sheetYear = 2026
-                    var dutyDaysForMonth = 0
+            val workbook = WorkbookFactory.create(inputStream)
+            
+            for (sheetIndex in 0 until workbook.numberOfSheets) {
+                val sheet = workbook.getSheetAt(sheetIndex)
+                val sheetName = sheet.sheetName.trim()
+                var sheetMonth = getMonthIndex(sheetName)
+                var sheetYear = 2026
+                var dutyDaysForMonth = 0
 
-                    val rows = sheet.read()
-                    for (row in rows) {
-                        if (row.rowNum > 1) {
-                            try {
-                                val dateStr = getCellSafe(row, 0)
-                                val aircraftNum = getCellSafe(row, 1)
-                                val landHoursStr = getCellSafe(row, 2)
-                                val seaHoursStr = getCellSafe(row, 3)
-                                val captain = getCellSafe(row, 4)
-                                val missionNum = getCellSafe(row, 5)
-                                val dutyCellStr = getCellSafe(row, 6)
+                // Читаем строки со 2-й (индекс 1 в 0-based нумерации POI), пропуская заголовок
+                for (rowIndex in 1..sheet.lastRowNum) {
+                    val row = sheet.getRow(rowIndex) ?: continue
+                    try {
+                        val dateStr = getCellSafe(row, 0)
+                        val aircraftNum = getCellSafe(row, 1)
+                        val landHoursStr = getCellSafe(row, 2)
+                        val seaHoursStr = getCellSafe(row, 3)
+                        val captain = getCellSafe(row, 4)
+                        val missionNum = getCellSafe(row, 5)
+                        val dutyCellStr = getCellSafe(row, 6)
 
-                                val dutyDaysInRow = dutyCellStr.toIntOrNull() ?: 0
-                                if (dutyDaysInRow > 0) {
-                                    dutyDaysForMonth += dutyDaysInRow
-                                }
+                        val dutyDaysInRow = dutyCellStr.toIntOrNull() ?: 0
+                        if (dutyDaysInRow > 0) {
+                            dutyDaysForMonth += dutyDaysInRow
+                        }
 
-                                if (dateStr.isNotBlank() && (landHoursStr.isNotBlank() || seaHoursStr.isNotBlank())) {
-                                    val timestamp = parseDateToTimestamp(dateStr)
-                                    val landMinutes = parseTimeToMinutes(landHoursStr)
-                                    val seaMinutes = parseTimeToMinutes(seaHoursStr)
+                        if (dateStr.isNotBlank() && (landHoursStr.isNotBlank() || seaHoursStr.isNotBlank())) {
+                            val timestamp = parseDateToTimestamp(dateStr)
+                            val landMinutes = parseTimeToMinutes(landHoursStr)
+                            val seaMinutes = parseTimeToMinutes(seaHoursStr)
 
-                                    flights.add(
-                                        FlightEntity(
-                                            dateTimestamp = timestamp,
-                                            aircraftNumber = aircraftNum,
-                                            captain = captain,
-                                            missionNumber = missionNum.ifBlank { null },
-                                            landTimeMinutes = landMinutes,
-                                            seaTimeMinutes = seaMinutes
-                                        )
-                                    )
+                            flights.add(
+                                FlightEntity(
+                                    dateTimestamp = timestamp,
+                                    aircraftNumber = aircraftNum,
+                                    captain = captain,
+                                    missionNumber = missionNum.ifBlank { null },
+                                    landTimeMinutes = landMinutes,
+                                    seaTimeMinutes = seaMinutes
+                                )
+                            )
 
-                                    if (timestamp > 0) {
-                                        val cal = Calendar.getInstance().apply { timeInMillis = timestamp }
-                                        sheetMonth = cal.get(Calendar.MONTH) + 1
-                                        sheetYear = cal.get(Calendar.YEAR)
-                                    }
-                                }
-                            } catch (e: Exception) {
-                                e.printStackTrace()
+                            if (timestamp > 0) {
+                                val cal = Calendar.getInstance().apply { timeInMillis = timestamp }
+                                sheetMonth = cal.get(Calendar.MONTH) + 1
+                                sheetYear = cal.get(Calendar.YEAR)
                             }
                         }
-                    }
-
-                    if (dutyDaysForMonth > 0 && sheetMonth in 1..12) {
-                        duties.add(
-                            DutyEntity(
-                                month = sheetMonth,
-                                year = sheetYear,
-                                dutyDays = dutyDaysForMonth
-                            )
-                        )
+                    } catch (e: Exception) {
+                        e.printStackTrace()
                     }
                 }
+
+                if (dutyDaysForMonth > 0 && sheetMonth in 1..12) {
+                    duties.add(
+                        DutyEntity(
+                            month = sheetMonth,
+                            year = sheetYear,
+                            dutyDays = dutyDaysForMonth
+                        )
+                    )
+                }
             }
+            workbook.close()
         }
 
         return ImportResult(flights, duties)
     }
 
-    private fun getCellSafe(row: org.dhatim.fastexcel.reader.Row, index: Int): String {
-        return try {
-            row.getCellAsString(index).orElse("").trim()
-        } catch (e: Exception) {
-            ""
+    // Безопасное получение значений из любых типов ячеек Excel
+    private fun getCellSafe(row: Row, index: Int): String {
+        val cell = row.getCell(index) ?: return ""
+        return when (cell.cellType) {
+            CellType.STRING -> cell.stringCellValue.trim()
+            CellType.NUMERIC -> {
+                if (DateUtil.isCellDateFormatted(cell)) {
+                    val sdf = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
+                    sdf.format(cell.dateCellValue)
+                } else {
+                    val numeric = cell.numericCellValue
+                    if (numeric == numeric.toLong().toDouble()) {
+                        numeric.toLong().toString()
+                    } else {
+                        numeric.toString()
+                    }
+                }
+            }
+            CellType.BOOLEAN -> cell.booleanCellValue.toString()
+            CellType.FORMULA -> {
+                runCatching { cell.stringCellValue.trim() }.getOrElse {
+                    runCatching {
+                        val num = cell.numericCellValue
+                        if (num == num.toLong().toDouble()) num.toLong().toString() else num.toString()
+                    }.getOrDefault("")
+                }
+            }
+            else -> ""
         }
     }
 
