@@ -62,11 +62,11 @@ fun SettingsScreen(
                         val msg = "Успешно импортировано: рейсов — ${importResult.flights.size}, дежурств — ${importResult.duties.size}"
                         Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
                     }
-                } catch (e: Exception) {
+                } catch (e: Throwable) { // Перехватывает любые системные ошибки и исключения
                     withContext(Dispatchers.Main) {
                         Toast.makeText(
                             context,
-                            "Ошибка при импорте файла: ${e.localizedMessage}",
+                            "Ошибка при импорте файла: ${e.localizedMessage ?: e.javaClass.simpleName}",
                             Toast.LENGTH_LONG
                         ).show()
                     }
