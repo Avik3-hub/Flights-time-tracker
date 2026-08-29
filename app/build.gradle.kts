@@ -37,7 +37,8 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-        }
+      
+}
     }
 
     compileOptions {
@@ -56,6 +57,15 @@ android {
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.8"
     }
+packaging {
+        resources {
+            excludes += "META-INF/DEPENDENCIES"
+            excludes += "META-INF/LICENSE"
+            excludes += "META-INF/LICENSE.txt"
+            excludes += "META-INF/NOTICE"
+            excludes += "META-INF/NOTICE.txt"
+        }
+    }
 }
 
 dependencies {
@@ -64,7 +74,8 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.8.2")
     implementation("org.dhatim:fastexcel:0.15.3")
     implementation("org.dhatim:fastexcel-reader:0.15.3")
-
+ // Чтение и анализ файлов Excel (.xlsx)
+    implementation("org.apache.poi:poi-ooxml:5.2.5")
     // Jetpack Compose (BOM)
     val composeBom = platform("androidx.compose:compose-bom:2024.02.00")
     implementation(composeBom)
