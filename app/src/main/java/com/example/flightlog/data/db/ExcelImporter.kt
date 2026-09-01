@@ -75,7 +75,7 @@ object ExcelImporter {
             }
 
 
-            // Лист 2 (индекс 1): Дежурства
+                        // Лист 2 (индекс 1): Дежурства (фиксированные колонки: 0 - Год, 1 - Месяц, 2 - Дни)
             if (workbook.numberOfSheets > 1) {
                 val sheet = workbook.getSheetAt(1)
                 val rowIterator = sheet.rowIterator()
@@ -83,50 +83,49 @@ object ExcelImporter {
                     rowIterator.next() // Пропускаем заголовок
                     while (rowIterator.hasNext()) {
                         val row = rowIterator.next()
-                        val rowValues = (0 until row.lastCellNum).map { getCellSafe(row, it) }
-                        
-                        var foundYear: Int? = null
-                        var foundMonth: Int? = null
-                        var foundDays: Int? = null
-
-                        for (value in rowValues) {
-                            val cleanNum = parseCleanDouble(value)?.toInt()
-                            if (cleanNum != null && cleanNum in 2000..2100) {
-                                foundYear = cleanNum
-                                break
+                        try {
+                            // Колонка A (индекс 0) — Год
+                            val yearCell = row.getCell(0) ?: continue
+                            val year = when (yearCell.cellType) {
+                                CellType.NUMERIC -> yearCell.numericCellValue.toInt()
+                                CellType.STRING -> yearCell.stringCellValue.trim().toIntOrNull() ?: continue
+                                else -> continue
                             }
-                        }
 
-                        for (value in rowValues) {
-                            val month = parseMonth(value)
-                            if (month != null) {
-                                foundMonth = month
-                                break
+                            // Колонка B (индекс 1) — Месяц (поддерживает 0 и 1-12)
+                            val monthCell = row.getCell(1)
+                            val month = when (monthCell?.cellType) {
+                                CellType.NUMERIC -> monthCell.numericCellValue.toInt()
+                                CellType.STRING -> monthCell.stringCellValue.trim().toIntOrNull() ?: 0
+                                else -> 0
                             }
-                        }
 
-                        for (value in rowValues) {
-                            val num = parseCleanDouble(value)?.toInt()
-                            if (num != null && num in 1..31 && num != foundYear && num != foundMonth) {
-                                foundDays = num
-                                break
+                            // Колонка C (индекс 2) — Дни дежурства
+                            val daysCell = row.getCell(2)
+                            val days = when (daysCell?.cellType) {
+                                CellType.NUMERIC -> daysCell.numericCellValue.toInt()
+                                CellType.STRING -> daysCell.stringCellValue.trim().toIntOrNull() ?: 0
+                                else -> 0
                             }
-                        }
 
-                        if (foundYear != null && foundMonth != null && foundDays != null) {
-                            if (duties.none { it.year == foundYear && it.month == foundMonth }) {
-                                duties.add(
-                                    DutyEntity(
-                                        year = foundYear,
-                                        month = foundMonth,
-                                        dutyDays = foundDays
+                            if (year > 0) {
+                                if (duties.none { it.year == year && it.month == month }) {
+                                    duties.add(
+                                        DutyEntity(
+                                            year = year,
+                                            month = month,
+                                            dutyDays = days
+                                        )
                                     )
-                                )
+                                }
                             }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
                         }
                     }
                 }
             }
+            
 
             // Лист 3 (индекс 2): Тарифы
             if (workbook.numberOfSheets > 2) {
