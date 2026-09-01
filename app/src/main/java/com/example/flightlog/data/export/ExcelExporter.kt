@@ -49,7 +49,7 @@ object ExcelExporter {
                 row.createCell(5).setCellValue(formatMinutesToHHMM(flight.seaTimeMinutes))
             }
 
-            // 2. Отдельный лист "Дежурства" с разбивкой ПО МЕСЯЦАМ (чистые данные для импорта)
+            // 2. Лист "Дежурства" с разбивкой по месяцам (чистые данные для импорта)
             val dutySheet = workbook.createSheet("Дежурства")
             val dutyHeader = dutySheet.createRow(0)
             dutyHeader.createCell(0).setCellValue("Год")
@@ -87,9 +87,9 @@ object ExcelExporter {
                 }
             }
 
-            // 4. Отдельный лист "Сводка" с финансовым отчетом
-            if (sortedFlights.isNotEmpty() || duties.isNotEmpty()) {
-                try {
+            // 4. Отдельный лист "Сводка" с финансовым отчетом (в защищенном блоке)
+            try {
+                if (sortedFlights.isNotEmpty() || duties.isNotEmpty()) {
                     val report = CalculationEngine.calculateReport(
                         flights = sortedFlights,
                         duties = duties,
@@ -102,7 +102,7 @@ object ExcelExporter {
                     val titleRow = summarySheet.createRow(sumRowIdx++)
                     titleRow.createCell(0).setCellValue("ФИНАНСОВЫЙ И ИТОГОВЫЙ ОТЧЕТ")
 
-                    sumRowIdx++ // Пустая строка для красоты
+                    sumRowIdx++ // Пустая строка
 
                     fun addSummaryRow(label: String, value: Any) {
                         val row = summarySheet.createRow(sumRowIdx++)
@@ -110,6 +110,7 @@ object ExcelExporter {
                         when (value) {
                             is Double -> row.createCell(1).setCellValue(value)
                             is Int -> row.createCell(1).setCellValue(value.toDouble())
+                            is Long -> row.createCell(1).setCellValue(value.toDouble())
                             is String -> row.createCell(1).setCellValue(value)
                         }
                     }
@@ -126,10 +127,11 @@ object ExcelExporter {
                     }
 
                     addSummaryRow("Итоговая выплата (включая дежурство и с вычетом 13% НДФЛ) (₽)", report.totalPayment)
-
-                } catch (e: Exception) {
-                    e.printStackTrace()
                 }
+            } catch (e: Exception) {
+                // Если в расчетах возникнет сбой (например, нет подходящего тарифа),
+                // приложение не упадет, лист просто не добавится, а файл запишется успешно.
+                e.printStackTrace()
             }
 
             // Автоподгонка ширины столбцов по содержимому для каждого листа с запасом
