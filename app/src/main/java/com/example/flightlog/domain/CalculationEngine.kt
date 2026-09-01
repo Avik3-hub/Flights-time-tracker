@@ -3,6 +3,7 @@ package com.example.flightlog.domain
 import com.example.flightlog.data.db.DutyEntity
 import com.example.flightlog.data.db.FlightEntity
 import com.example.flightlog.data.db.TariffEntity
+import java.util.Calendar
 
 data class MonthlyReport(
     val totalLandMinutes: Int,
@@ -18,31 +19,59 @@ data class MonthlyReport(
 object CalculationEngine {
     private const val TAX_FACTOR = 0.87
 
-    fun getActiveTariff(tariffs: List<TariffEntity>, year: Int, month: Int): TariffEntity? {
+    /**
+     * Поиск тарифа, действующего для конкретного года и месяца.
+     * Если тариф не найден, создается дефолтный объект тарифа.
+     */
+    fun getActiveTariff(tariffs: List<TariffEntity>, year: Int, month: Int): TariffEntity {
         val targetPeriod = year * 12 + month
         return tariffs
             .filter { (it.effectiveFromYear * 12 + it.effectiveFromMonth) <= targetPeriod }
             .maxByOrNull { it.effectiveFromYear * 12 + it.effectiveFromMonth }
+            ?: TariffEntity(effectiveFromYear = year, effectiveFromMonth = month)
     }
 
-    fun calculateMonthlyReport(
+    /**
+     * Полный расчет выплат за выбранный период (месяц или год).
+     * Для каждого полета и дежурства динамически применяется тариф своего месяца.
+     */
+    fun calculateReport(
         flights: List<FlightEntity>,
-        dutyRecord: DutyEntity,
-        tariff: TariffEntity
+        duties: List<DutyEntity>,
+        tariffs: List<TariffEntity>
     ): MonthlyReport {
         val totalLandMinutes = flights.sumOf { it.landTimeMinutes }
         val totalSeaMinutes = flights.sumOf { it.seaTimeMinutes }
         val totalMinutes = totalLandMinutes + totalSeaMinutes
 
-        val totalFlightDays = flights.map { it.dateTimestamp }.distinct().size
+        // Подсчет уникальных лётных дней по календарной дате
+        val totalFlightDays = flights
+            .map { flight ->
+                val cal = Calendar.getInstance().apply { timeInMillis = flight.dateTimestamp }
+                "${cal.get(Calendar.YEAR)}-${cal.get(Calendar.DAY_OF_YEAR)}"
+            }
+            .distinct()
+            .size
 
-        val netLandRate = tariff.landHourlyRate * TAX_FACTOR
-        val netSeaRate = tariff.seaHourlyRate * TAX_FACTOR
-        val netDutyRate = tariff.dutyDayRate * TAX_FACTOR
+        var landPayment = 0.0
+        var seaPayment = 0.0
 
-        val landPayment = (totalLandMinutes / 60.0) * netLandRate
-        val seaPayment = (totalSeaMinutes / 60.0) * netSeaRate
-        val dutyPayment = dutyRecord.dutyDays * netDutyRate
+        for (flight in flights) {
+            val cal = Calendar.getInstance().apply { timeInMillis = flight.dateTimestamp }
+            val fYear = cal.get(Calendar.YEAR)
+            val fMonth = cal.get(Calendar.MONTH) + 1
+
+            val tariff = getActiveTariff(tariffs, fYear, fMonth)
+
+            landPayment += (flight.landTimeMinutes / 60.0) * tariff.landHourlyRate * TAX_FACTOR
+            seaPayment += (flight.seaTimeMinutes / 60.0) * tariff.seaHourlyRate * TAX_FACTOR
+        }
+
+        var dutyPayment = 0.0
+        for (duty in duties) {
+            val tariff = getActiveTariff(tariffs, duty.year, duty.month)
+            dutyPayment += duty.dutyDays * tariff.dutyDayRate * TAX_FACTOR
+        }
 
         val totalPayment = landPayment + seaPayment + dutyPayment
 
