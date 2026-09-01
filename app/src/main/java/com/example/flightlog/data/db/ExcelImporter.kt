@@ -58,10 +58,30 @@ object ExcelImporter {
                     continue
                 }
 
-                // 2. Чтение полетов и дежурств
+                // 2. Чтение дежурств (отдельный лист)
+                if (sheetName.equals("Дежурства", ignoreCase = true)) {
+                    for (rowIndex in 1..sheet.lastRowNum) {
+                        val row = sheet.getRow(rowIndex) ?: continue
+                        val year = getCellSafe(row, 0).toIntOrNull()
+                        val month = getCellSafe(row, 1).toIntOrNull()
+                        val days = getCellSafe(row, 2).toIntOrNull()
+
+                        if (year != null && month != null && days != null && days > 0) {
+                            duties.add(
+                                DutyEntity(
+                                    year = year,
+                                    month = month,
+                                    dutyDays = days
+                                )
+                            )
+                        }
+                    }
+                    continue
+                }
+
+                // 3. Чтение полётов
                 var sheetMonth = getMonthIndex(sheetName)
                 var sheetYear = 2026
-                var dutyDaysForMonth = 0
 
                 for (rowIndex in 1..sheet.lastRowNum) {
                     val row = sheet.getRow(rowIndex) ?: continue
@@ -72,12 +92,6 @@ object ExcelImporter {
                         val captain = getCellSafe(row, 3)
                         val landHoursStr = getCellSafe(row, 4)
                         val seaHoursStr = getCellSafe(row, 5)
-                        val dutyCellStr = getCellSafe(row, 6)
-
-                        val dutyDaysInRow = dutyCellStr.toIntOrNull() ?: 0
-                        if (dutyDaysInRow > 0) {
-                            dutyDaysForMonth += dutyDaysInRow
-                        }
 
                         if (dateStr.isNotBlank() && (landHoursStr.isNotBlank() || seaHoursStr.isNotBlank())) {
                             val timestamp = parseDateToTimestamp(dateStr)
@@ -104,16 +118,6 @@ object ExcelImporter {
                     } catch (e: Exception) {
                         e.printStackTrace()
                     }
-                }
-
-                if (dutyDaysForMonth > 0 && sheetMonth in 1..12) {
-                    duties.add(
-                        DutyEntity(
-                            month = sheetMonth,
-                            year = sheetYear,
-                            dutyDays = dutyDaysForMonth
-                        )
-                    )
                 }
             }
             workbook.close()
@@ -156,7 +160,6 @@ object ExcelImporter {
         if (timeStr.isBlank()) return 0
         val clean = timeStr.trim().lowercase()
 
-        // 1. Формат "ЧЧ:ММ"
         if (clean.contains(":")) {
             val parts = clean.split(":")
             val h = parts.getOrNull(0)?.toIntOrNull() ?: 0
@@ -164,7 +167,6 @@ object ExcelImporter {
             return h * 60 + m
         }
 
-        // 2. Текстовый формат "X ч Y мин" / "Xч Yмин"
         val hoursRegex = Regex("""(\d+)\s*ч""")
         val minsRegex = Regex("""(\d+)\s*мин""")
         val hMatch = hoursRegex.find(clean)
@@ -176,7 +178,6 @@ object ExcelImporter {
             return hours * 60 + minutes
         }
 
-        // 3. Десятичные числа
         val normalizedDouble = clean.replace(',', '.')
         val doubleHours = normalizedDouble.toDoubleOrNull() ?: 0.0
         return (doubleHours * 60).toInt()
