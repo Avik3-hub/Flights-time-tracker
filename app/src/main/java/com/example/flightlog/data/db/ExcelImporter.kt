@@ -30,6 +30,7 @@ object ExcelImporter {
             val workbook = WorkbookFactory.create(inputStream)
 
             // Лист 1 (индекс 0): Полеты
+                        // Лист 1 (индекс 0): Полеты
             if (workbook.numberOfSheets > 0) {
                 val sheet = workbook.getSheetAt(0)
                 val rowIterator = sheet.rowIterator()
@@ -38,15 +39,21 @@ object ExcelImporter {
                     while (rowIterator.hasNext()) {
                         val row = rowIterator.next()
                         try {
+                            // Колонка A (индекс 0) — Дата
                             val dateStr = getCellSafe(row, 0)
                             if (dateStr.isBlank()) continue
 
+                            // Колонка B (индекс 1) — ВС
                             val aircraftNum = getCellSafe(row, 1).ifBlank { "б/н" }
+                            // Колонка C (индекс 2) — Задание
                             val missionNum = getCellSafe(row, 2).ifBlank { null }
+                            // Колонка D (индекс 3) — КВС
                             val captain = getCellSafe(row, 3).ifBlank { "Не указан" }
 
-                            val landMinutes = parseCellToMinutes(row.getCell(5))
-                            val seaMinutes = parseCellToMinutes(row.getCell(6))
+                            // Колонка E (индекс 4) — Земля
+                            // Колонка F (индекс 5) — Море
+                            val landMinutes = parseCellToMinutes(row.getCell(4))
+                            val seaMinutes = parseCellToMinutes(row.getCell(5))
 
                             val timestamp = parseDateToTimestamp(dateStr)
 
@@ -66,6 +73,7 @@ object ExcelImporter {
                     }
                 }
             }
+
 
             // Лист 2 (индекс 1): Дежурства
             if (workbook.numberOfSheets > 1) {
