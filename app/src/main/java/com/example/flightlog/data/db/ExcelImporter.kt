@@ -10,7 +10,6 @@ import org.apache.poi.ss.usermodel.DateUtil
 import org.apache.poi.ss.usermodel.Row
 import org.apache.poi.ss.usermodel.WorkbookFactory
 import java.text.SimpleDateFormat
-import java.util.Calendar
 import java.util.Locale
 
 object ExcelImporter {
@@ -31,89 +30,92 @@ object ExcelImporter {
 
             for (sheetIndex in 0 until workbook.numberOfSheets) {
                 val sheet = workbook.getSheetAt(sheetIndex)
-                val sheetName = sheet.sheetName.trim()
+                val sheetName = sheet.sheetName.trim().lowercase()
 
-                // 1. Чтение тарифов
-                if (sheetName.contains("тариф", ignoreCase = true)) {
-                    val rows = sheet.rowIterator()
-                    if (rows.hasNext()) rows.next()
-                    while (rows.hasNext()) {
-                        val row = rows.next()
-                        val year = parseCleanDouble(getCellSafe(row, 0))?.toInt()
-                        val month = parseMonth(getCellSafe(row, 1))
-                        val landRate = parseCleanDouble(getCellSafe(row, 2))
-                        val seaRate = parseCleanDouble(getCellSafe(row, 3))
-                        val dutyRate = parseCleanDouble(getCellSafe(row, 4))
+                // Определяем тип листа по ключевым словам
+                when {
+                    sheetName.contains("тариф") || sheetName.contains("rate") || sheetName.contains("ставка") -> {
+                        val rows = sheet.rowIterator()
+                        if (rows.hasNext()) rows.next() // Пропускаем заголовок
+                        while (rows.hasNext()) {
+                            val row = rows.next()
+                            val year = parseCleanDouble(getCellSafe(row, 0))?.toInt()
+                            val month = parseMonth(getCellSafe(row, 1))
+                            val landRate = parseCleanDouble(getCellSafe(row, 2))
+                            val seaRate = parseCleanDouble(getCellSafe(row, 3))
+                            val dutyRate = parseCleanDouble(getCellSafe(row, 4))
 
-                        if (year != null && month != null && landRate != null && seaRate != null && dutyRate != null) {
-                            tariffs.add(
-                                TariffEntity(
-                                    effectiveFromYear = year,
-                                    effectiveFromMonth = month,
-                                    landHourlyRate = landRate,
-                                    seaHourlyRate = seaRate,
-                                    dutyDayRate = dutyRate
+                            if (year != null && month != null && landRate != null && seaRate != null && dutyRate != null) {
+                                tariffs.add(
+                                    TariffEntity(
+                                        effectiveFromYear = year,
+                                        effectiveFromMonth = month,
+                                        landHourlyRate = landRate,
+                                        seaHourlyRate = seaRate,
+                                        dutyDayRate = dutyRate
+                                    )
                                 )
-                            )
+                            }
                         }
                     }
-                    continue
-                }
 
-                // 2. Чтение дежурств
-                if (sheetName.contains("дежурст", ignoreCase = true)) {
-                    val rows = sheet.rowIterator()
-                    if (rows.hasNext()) rows.next()
-                    while (rows.hasNext()) {
-                        val row = rows.next()
-                        val year = parseCleanDouble(getCellSafe(row, 0))?.toInt()
-                        val month = parseMonth(getCellSafe(row, 1))
-                        val days = parseCleanDouble(getCellSafe(row, 2))?.toInt()
+                    sheetName.contains("дежурст") || sheetName.contains("duty") -> {
+                        val rows = sheet.rowIterator()
+                        if (rows.hasNext()) rows.next()
+                        while (rows.hasNext()) {
+                            val row = rows.next()
+                            val year = parseCleanDouble(getCellSafe(row, 0))?.toInt()
+                            val month = parseMonth(getCellSafe(row, 1))
+                            val days = parseCleanDouble(getCellSafe(row, 2))?.toInt()
 
-                        if (year != null && month != null && days != null && days > 0) {
-                            duties.add(
-                                DutyEntity(
-                                    year = year,
-                                    month = month,
-                                    dutyDays = days
+                            if (year != null && month != null && days != null && days > 0) {
+                                duties.add(
+                                    DutyEntity(
+                                        year = year,
+                                        month = month,
+                                        dutyDays = days
+                                    )
                                 )
-                            )
+                            }
                         }
                     }
-                    continue
-                }
 
-                // 3. Чтение полётов
-                val rows = sheet.rowIterator()
-                if (rows.hasNext()) rows.next()
-                while (rows.hasNext()) {
-                    val row = rows.next()
-                    try {
-                        val dateStr = getCellSafe(row, 0)
-                        val aircraftNum = getCellSafe(row, 1)
-                        val missionNum = getCellSafe(row, 2)
-                        val captain = getCellSafe(row, 3)
-                        val landHoursStr = getCellSafe(row, 4)
-                        val seaHoursStr = getCellSafe(row, 5)
+                    else -> {
+                        // Считаем лист таблицей полетов (или если имя содержит "полет", "flight", либо первый лист по умолчанию)
+                        val rows = sheet.rowIterator()
+                        if (rows.hasNext()) rows.next() // Пропускаем заголовок
+                        while (rows.hasNext()) {
+                            val row = rows.next()
+                            try {
+                                val dateStr = getCellSafe(row, 0)
+                                val aircraftNum = getCellSafe(row, 1)
+                                val missionNum = getCellSafe(row, 2)
+                                val captain = getCellSafe(row, 3)
+                                
+                                val landCellVal = getCellSafe(row, 4)
+                                val seaCellVal = getCellSafe(row, 5)
 
-                        if (dateStr.isNotBlank() && (landHoursStr.isNotBlank() || seaHoursStr.isNotBlank())) {
-                            val timestamp = parseDateToTimestamp(dateStr)
-                            val landMinutes = parseTimeToMinutes(landHoursStr)
-                            val seaMinutes = parseTimeToMinutes(seaHoursStr)
+                                // Если дата есть, пробуем распарсить строку
+                                if (dateStr.isNotBlank()) {
+                                    val timestamp = parseDateToTimestamp(dateStr)
+                                    val landMinutes = parseTimeToMinutes(landCellVal, row.getCell(4)?.numericCellValue)
+                                    val seaMinutes = parseTimeToMinutes(seaCellVal, row.getCell(5)?.numericCellValue)
 
-                            flights.add(
-                                FlightEntity(
-                                    dateTimestamp = timestamp,
-                                    aircraftNumber = aircraftNum,
-                                    captain = captain,
-                                    missionNumber = missionNum.ifBlank { null },
-                                    landTimeMinutes = landMinutes,
-                                    seaTimeMinutes = seaMinutes
-                                )
-                            )
+                                    flights.add(
+                                        FlightEntity(
+                                            dateTimestamp = timestamp,
+                                            aircraftNumber = aircraftNum.ifBlank { "б/н" },
+                                            captain = captain.ifBlank { "Не указан" },
+                                            missionNumber = missionNum.ifBlank { null },
+                                            landTimeMinutes = landMinutes,
+                                            seaTimeMinutes = seaMinutes
+                                        )
+                                    )
+                                }
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
                         }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
                     }
                 }
             }
@@ -169,15 +171,23 @@ object ExcelImporter {
         return if (index >= 0) index + 1 else null
     }
 
-    private fun parseTimeToMinutes(timeStr: String): Int {
+    private fun parseTimeToMinutes(timeStr: String, rawNumeric: Double? = null): Int {
+        if (rawNumeric != null && rawNumeric > 0.0 && !timeStr.contains(":")) {
+            if (rawNumeric < 1.0) {
+                return (rawNumeric * 24.0 * 60.0).toInt()
+            }
+        }
+
         if (timeStr.isBlank()) return 0
         val clean = timeStr.trim().lowercase()
+        
         if (clean.contains(":")) {
             val parts = clean.split(":")
             val h = parts.getOrNull(0)?.toIntOrNull() ?: 0
             val m = parts.getOrNull(1)?.toIntOrNull() ?: 0
             return h * 60 + m
         }
+        
         val normalizedDouble = clean.replace(',', '.')
         val doubleHours = normalizedDouble.toDoubleOrNull() ?: 0.0
         return (doubleHours * 60).toInt()
