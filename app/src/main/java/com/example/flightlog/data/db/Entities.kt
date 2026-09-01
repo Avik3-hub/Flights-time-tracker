@@ -16,7 +16,7 @@ data class FlightEntity(
 
 @Entity(
     tableName = "duty_records",
-    primaryKeys = ["year", "month"] // Составной ключ: замена будет работать по Году и Месяцу
+    primaryKeys = ["year", "month"]
 )
 data class DutyEntity(
     val year: Int,
@@ -24,11 +24,13 @@ data class DutyEntity(
     val dutyDays: Int
 )
 
-@Entity(tableName = "tariff_config")
+@Entity(
+    tableName = "tariff_config",
+    primaryKeys = ["effectiveFromYear", "effectiveFromMonth"]
+)
 data class TariffEntity(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0, // Изменено: теперь генерируется автоматически для сохранения истории
-    val effectiveFromYear: Int,                        // Год ввода тарифа (например, 2025)
-    val effectiveFromMonth: Int,                       // Месяц ввода тарифа (1-12, например 7 для июля)
+    val effectiveFromYear: Int,
+    val effectiveFromMonth: Int,
     val landHourlyRate: Double = 879.57,
     val seaHourlyRate: Double = 0.0,
     val dutyDayRate: Double = 0.0
