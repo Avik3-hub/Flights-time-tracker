@@ -8,6 +8,7 @@ import com.example.flightlog.data.db.TariffEntity
 import com.example.flightlog.domain.CalculationEngine
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Locale
 
 object ExcelExporter {
@@ -25,6 +26,19 @@ object ExcelExporter {
             val dateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
             val tariffList = if (allTariffs.isNotEmpty()) allTariffs else listOfNotNull(activeTariff)
             val sortedFlights = flights.sortedBy { it.dateTimestamp }
+
+            // Фильтрация дежурств под период выгружаемых полетов
+            val calendar = Calendar.getInstance()
+            val flightMonths = sortedFlights.map { flight ->
+                calendar.timeInMillis = flight.dateTimestamp
+                Pair(calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH) + 1)
+            }.toSet()
+
+            val filteredDuties = if (flightMonths.isNotEmpty()) {
+                duties.filter { duty -> Pair(duty.year, duty.month) in flightMonths }
+            } else {
+                duties
+            }
 
             // 1. Лист со списком полётов
             val flightSheet = workbook.createSheet("Полёты")
@@ -49,10 +63,10 @@ object ExcelExporter {
                 row.createCell(5).setCellValue(formatMinutesToHHMM(flight.seaTimeMinutes))
             }
             for (i in 0..5) {
-                flightSheet.setColumnWidth(i, 20 * 256)
+                flightSheet.setColumnWidth(i, 10 * 256)
             }
 
-            // 2. Лист "Дежурства" с разбивкой по месяцам
+            // 2. Лист "Дежурства" (отфильтрованный)
             val dutySheet = workbook.createSheet("Дежурства")
             val dutyHeader = dutySheet.createRow(0)
             dutyHeader.createCell(0).setCellValue("Год")
@@ -60,7 +74,7 @@ object ExcelExporter {
             dutyHeader.createCell(2).setCellValue("Дней дежурства")
 
             var dutyRowIndex = 1
-            for (duty in duties.sortedWith(compareBy({ it.year }, { it.month }))) {
+            for (duty in filteredDuties.sortedWith(compareBy({ it.year }, { it.month }))) {
                 if (duty.dutyDays > 0 && duty.month in 1..12) {
                     val row = dutySheet.createRow(dutyRowIndex++)
                     row.createCell(0).setCellValue(duty.year.toDouble())
@@ -69,7 +83,7 @@ object ExcelExporter {
                 }
             }
             for (i in 0..2) {
-                dutySheet.setColumnWidth(i, 18 * 256)
+                dutySheet.setColumnWidth(i, 9 * 256)
             }
 
             // 3. Лист с тарифами
@@ -92,16 +106,16 @@ object ExcelExporter {
                     row.createCell(4).setCellValue(t.dutyDayRate)
                 }
                 for (i in 0..4) {
-                    tariffSheet.setColumnWidth(i, 20 * 256)
+                    tariffSheet.setColumnWidth(i, 10 * 256)
                 }
             }
 
             // 4. Отдельный лист "Сводка" с финансовым отчетом
             try {
-                if (sortedFlights.isNotEmpty() || duties.isNotEmpty()) {
+                if (sortedFlights.isNotEmpty() || filteredDuties.isNotEmpty()) {
                     val report = CalculationEngine.calculateReport(
                         flights = sortedFlights,
-                        duties = duties,
+                        duties = filteredDuties,
                         tariffs = tariffList
                     )
 
@@ -129,7 +143,7 @@ object ExcelExporter {
                     addSummaryRow("Земля (общее)", formatMinutesToHHMM(report.totalLandMinutes))
                     addSummaryRow("Море (общее)", formatMinutesToHHMM(report.totalSeaMinutes))
 
-                    val totalDutyDays = duties.filter { it.dutyDays > 0 && it.month in 1..12 }.sumOf { it.dutyDays }
+                    val totalDutyDays = filteredDuties.filter { it.dutyDays > 0 && it.month in 1..12 }.sumOf { it.dutyDays }
                     if (totalDutyDays > 0) {
                         addSummaryRow("Дней дежурства (всего)", totalDutyDays)
                         addSummaryRow("Оплата за дежурство (₽)", report.dutyPayment)
@@ -137,8 +151,8 @@ object ExcelExporter {
 
                     addSummaryRow("Итоговая выплата (включая дежурство и с вычетом 13% НДФЛ) (₽)", report.totalPayment)
 
-                    summarySheet.setColumnWidth(0, 50 * 256)
-                    summarySheet.setColumnWidth(1, 20 * 256)
+                    summarySheet.setColumnWidth(0, 25 * 256)
+                    summarySheet.setColumnWidth(1, 10 * 256)
                 }
             } catch (e: Throwable) {
                 e.printStackTrace()
