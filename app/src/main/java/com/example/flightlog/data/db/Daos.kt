@@ -67,6 +67,15 @@ interface TariffDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTariff(tariff: TariffEntity)
 
-    @Query("DELETE FROM tariff_config WHERE id = :id")
-    suspend fun deleteTariff(id: Long)
+    // Массовый импорт тарифов
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTariffs(tariffs: List<TariffEntity>)
+
+    // Удаление по объекту тарифа
+    @Delete
+    suspend fun deleteTariff(tariff: TariffEntity)
+
+    // Удаление по году и месяцу действия
+    @Query("DELETE FROM tariff_config WHERE effectiveFromYear = :year AND effectiveFromMonth = :month")
+    suspend fun deleteTariffByPeriod(year: Int, month: Int)
 }
