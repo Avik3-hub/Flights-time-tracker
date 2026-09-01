@@ -32,7 +32,57 @@ object CalculationEngine {
     }
 
     /**
-     * Полный расчет выплат за выбранный период (месяц или год).
+     * Метод для экрана MainScreen, принимающий отфильтрованные полеты за период,
+     * одно дежурство и один активный тариф.
+     */
+    fun calculateMonthlyReport(
+        flights: List<FlightEntity>,
+        dutyRecord: DutyEntity?,
+        tariff: TariffEntity
+    ): MonthlyReport {
+        val totalLandMinutes = flights.sumOf { it.landTimeMinutes }
+        val totalSeaMinutes = flights.sumOf { it.seaTimeMinutes }
+        val totalMinutes = totalLandMinutes + totalSeaMinutes
+
+        // Подсчет уникальных лётных дней по календарной дате
+        val totalFlightDays = flights
+            .map { flight ->
+                val cal = Calendar.getInstance().apply { timeInMillis = flight.dateTimestamp }
+                "${cal.get(Calendar.YEAR)}-${cal.get(Calendar.DAY_OF_YEAR)}"
+            }
+            .distinct()
+            .size
+
+        var landPayment = 0.0
+        var seaPayment = 0.0
+
+        for (flight in flights) {
+            landPayment += (flight.landTimeMinutes / 60.0) * tariff.landHourlyRate * TAX_FACTOR
+            seaPayment += (flight.seaTimeMinutes / 60.0) * tariff.seaHourlyRate * TAX_FACTOR
+        }
+
+        val dutyPayment = if (dutyRecord != null) {
+            dutyRecord.dutyDays * tariff.dutyDayRate * TAX_FACTOR
+        } else {
+            0.0
+        }
+
+        val totalPayment = landPayment + seaPayment + dutyPayment
+
+        return MonthlyReport(
+            totalLandMinutes = totalLandMinutes,
+            totalSeaMinutes = totalSeaMinutes,
+            totalMinutes = totalMinutes,
+            totalFlightDays = totalFlightDays,
+            landPayment = landPayment,
+            seaPayment = seaPayment,
+            dutyPayment = dutyPayment,
+            totalPayment = totalPayment
+        )
+    }
+
+    /**
+     * Полный расчет выплат за выбранный период (месяц или год) со списками.
      * Для каждого полета и дежурства динамически применяется тариф своего месяца.
      */
     fun calculateReport(
@@ -44,7 +94,6 @@ object CalculationEngine {
         val totalSeaMinutes = flights.sumOf { it.seaTimeMinutes }
         val totalMinutes = totalLandMinutes + totalSeaMinutes
 
-        // Подсчет уникальных лётных дней по календарной дате
         val totalFlightDays = flights
             .map { flight ->
                 val cal = Calendar.getInstance().apply { timeInMillis = flight.dateTimestamp }
