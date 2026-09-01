@@ -21,14 +21,32 @@ object CalculationEngine {
 
     /**
      * Поиск тарифа, действующего для конкретного года и месяца.
-     * Если тариф не найден, создается дефолтный объект тарифа.
+     * Если точного совпадения нет, берется последний актуальный тариф из базы 
+     * или базовые ставки, предотвращая обнуление выплат.
      */
     fun getActiveTariff(tariffs: List<TariffEntity>, year: Int, month: Int): TariffEntity {
         val targetPeriod = year * 12 + month
-        return tariffs
+        
+        // 1. Ищем подходящий по периоду тариф
+        val active = tariffs
             .filter { (it.effectiveFromYear * 12 + it.effectiveFromMonth) <= targetPeriod }
             .maxByOrNull { it.effectiveFromYear * 12 + it.effectiveFromMonth }
-            ?: TariffEntity(effectiveFromYear = year, effectiveFromMonth = month)
+
+        if (active != null) return active
+
+        // 2. Если точного нет, но в базе есть другие тарифы — берем самый свежий из доступных
+        tariffs.maxByOrNull { it.effectiveFromYear * 12 + it.effectiveFromMonth }?.let {
+            return it
+        }
+
+        // 3. Абсолютный фоллбек, если таблица тарифов полностью пуста
+        return TariffEntity(
+            effectiveFromYear = year,
+            effectiveFromMonth = month,
+            landHourlyRate = 879.57,
+            seaHourlyRate = 0.0,
+            dutyDayRate = 0.0
+        )
     }
 
     /**
