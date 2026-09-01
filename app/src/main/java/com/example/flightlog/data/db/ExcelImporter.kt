@@ -5,6 +5,7 @@ import android.net.Uri
 import com.example.flightlog.data.db.DutyEntity
 import com.example.flightlog.data.db.FlightEntity
 import com.example.flightlog.data.db.TariffEntity
+import org.apache.poi.ss.usermodel.Cell
 import org.apache.poi.ss.usermodel.CellType
 import org.apache.poi.ss.usermodel.DateUtil
 import org.apache.poi.ss.usermodel.Row
@@ -32,11 +33,10 @@ object ExcelImporter {
                 val sheet = workbook.getSheetAt(sheetIndex)
                 val sheetName = sheet.sheetName.trim().lowercase()
 
-                // Определяем тип листа по ключевым словам
                 when {
                     sheetName.contains("тариф") || sheetName.contains("rate") || sheetName.contains("ставка") -> {
                         val rows = sheet.rowIterator()
-                        if (rows.hasNext()) rows.next() // Пропускаем заголовок
+                        if (rows.hasNext()) rows.next()
                         while (rows.hasNext()) {
                             val row = rows.next()
                             val year = parseCleanDouble(getCellSafe(row, 0))?.toInt()
@@ -81,9 +81,8 @@ object ExcelImporter {
                     }
 
                     else -> {
-                        // Считаем лист таблицей полетов (или если имя содержит "полет", "flight", либо первый лист по умолчанию)
                         val rows = sheet.rowIterator()
-                        if (rows.hasNext()) rows.next() // Пропускаем заголовок
+                        if (rows.hasNext()) rows.next()
                         while (rows.hasNext()) {
                             val row = rows.next()
                             try {
@@ -91,15 +90,14 @@ object ExcelImporter {
                                 val aircraftNum = getCellSafe(row, 1)
                                 val missionNum = getCellSafe(row, 2)
                                 val captain = getCellSafe(row, 3)
-                                
+
                                 val landCellVal = getCellSafe(row, 4)
                                 val seaCellVal = getCellSafe(row, 5)
 
-                                // Если дата есть, пробуем распарсить строку
                                 if (dateStr.isNotBlank()) {
                                     val timestamp = parseDateToTimestamp(dateStr)
-                                    val landMinutes = parseTimeToMinutes(landCellVal, row.getCell(4)?.numericCellValue)
-                                    val seaMinutes = parseTimeToMinutes(seaCellVal, row.getCell(5)?.numericCellValue)
+                                    val landMinutes = parseTimeToMinutes(landCellVal, getCellNumericSafe(row.getCell(4)))
+                                    val seaMinutes = parseTimeToMinutes(seaCellVal, getCellNumericSafe(row.getCell(5)))
 
                                     flights.add(
                                         FlightEntity(
@@ -160,6 +158,15 @@ object ExcelImporter {
         }
     }
 
+    private fun getCellNumericSafe(cell: Cell?): Double? {
+        if (cell == null) return null
+        return when (cell.cellType) {
+            CellType.NUMERIC -> cell.numericCellValue
+            CellType.FORMULA -> runCatching { cell.numericCellValue }.getOrNull()
+            else -> null
+        }
+    }
+
     private fun parseMonth(monthStr: String): Int? {
         if (monthStr.isBlank()) return null
         val clean = monthStr.trim().lowercase()
@@ -180,14 +187,14 @@ object ExcelImporter {
 
         if (timeStr.isBlank()) return 0
         val clean = timeStr.trim().lowercase()
-        
+
         if (clean.contains(":")) {
             val parts = clean.split(":")
             val h = parts.getOrNull(0)?.toIntOrNull() ?: 0
             val m = parts.getOrNull(1)?.toIntOrNull() ?: 0
             return h * 60 + m
         }
-        
+
         val normalizedDouble = clean.replace(',', '.')
         val doubleHours = normalizedDouble.toDoubleOrNull() ?: 0.0
         return (doubleHours * 60).toInt()
