@@ -856,14 +856,14 @@ fun SummaryCard(
         contract = ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     ) { uri ->
         uri?.let {
-            val success = ExcelExporter.exportToExcel(
-                context = context,
-                uri = it,
-                flights = monthlyFlights,
-                duty = monthlyDuty,
-                activeTariff = currentTariff,
-                allTariffs = allTariffs
-            )
+         val success = ExcelExporter.exportToExcel(
+    context = context,
+    uri = it,
+    flights = monthlyFlights,
+    duties = listOfNotNull(monthlyDuty),
+    activeTariff = currentTariff,
+    allTariffs = allTariffs
+)
             if (success) {
                 Toast.makeText(context, "Отчет сохранен в Excel!", Toast.LENGTH_LONG).show()
             } else {
