@@ -14,11 +14,13 @@ data class FlightEntity(
     val seaTimeMinutes: Int
 )
 
-@Entity(tableName = "duty_records")
+@Entity(
+    tableName = "duty_records",
+    primaryKeys = ["year", "month"] // Составной ключ: замена будет работать по Году и Месяцу
+)
 data class DutyEntity(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val month: Int,
     val year: Int,
+    val month: Int,
     val dutyDays: Int
 )
 
