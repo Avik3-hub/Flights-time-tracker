@@ -860,13 +860,13 @@ fun SummaryCard(
     ) { uri ->
         uri?.let {
             val success = ExcelExporter.exportToExcel(
-                context = context,
-                uri = it,
-                flights = monthlyFlights,
-                duties = listOfNotNull(monthlyDuty),
-                activeTariff = currentTariff,
-                allTariffs = allTariffs
-            )
+    context = context,
+    uri = it,
+    flights = monthlyFlights,
+    duties = dutyRecords, // Передаем весь список дежурств из базы
+    activeTariff = currentTariff,
+    allTariffs = allTariffs
+)
             if (success) {
                 Toast.makeText(context, "Отчет сохранен в Excel!", Toast.LENGTH_LONG).show()
             } else {
