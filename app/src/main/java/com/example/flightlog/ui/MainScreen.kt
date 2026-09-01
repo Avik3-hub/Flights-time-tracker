@@ -838,7 +838,7 @@ fun StatisticsTabScreen(
             )
         }
     }
-
+}
 
 @Composable
 fun SummaryCard(
