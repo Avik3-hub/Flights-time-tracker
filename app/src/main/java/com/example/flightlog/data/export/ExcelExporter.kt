@@ -5,9 +5,9 @@ import android.net.Uri
 import com.example.flightlog.data.db.DutyEntity
 import com.example.flightlog.data.db.FlightEntity
 import com.example.flightlog.data.db.TariffEntity
+import com.example.flightlog.domain.CalculationEngine
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import java.text.SimpleDateFormat
-import java.util.Calendar
 import java.util.Locale
 
 object ExcelExporter {
@@ -23,8 +23,10 @@ object ExcelExporter {
         return try {
             val workbook = XSSFWorkbook()
             val dateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
+            val tariffList = if (allTariffs.isNotEmpty()) allTariffs else listOfNotNull(activeTariff)
+            val sortedFlights = flights.sortedBy { it.dateTimestamp }
 
-            // 1. Лист со списком полётов
+            // 1. Лист со списком полётов (чистые данные для импорта)
             val flightSheet = workbook.createSheet("Полёты")
             val flightHeader = flightSheet.createRow(0)
             flightHeader.createCell(0).setCellValue("Дата")
@@ -35,7 +37,7 @@ object ExcelExporter {
             flightHeader.createCell(5).setCellValue("Море (ч:мм)")
 
             var rowIndex = 1
-            for (flight in flights.sortedBy { it.dateTimestamp }) {
+            for (flight in sortedFlights) {
                 val row = flightSheet.createRow(rowIndex++)
                 val dateStr = dateFormat.format(flight.dateTimestamp)
                 
@@ -47,7 +49,7 @@ object ExcelExporter {
                 row.createCell(5).setCellValue(formatMinutesToHHMM(flight.seaTimeMinutes))
             }
 
-              // 2. Отдельный лист "Дежурства" с разбивкой ПО МЕСЯЦАМ
+            // 2. Отдельный лист "Дежурства" с разбивкой ПО МЕСЯЦАМ (чистые данные для импорта)
             val dutySheet = workbook.createSheet("Дежурства")
             val dutyHeader = dutySheet.createRow(0)
             dutyHeader.createCell(0).setCellValue("Год")
@@ -55,7 +57,6 @@ object ExcelExporter {
             dutyHeader.createCell(2).setCellValue("Дней дежурства")
 
             var dutyRowIndex = 1
-            // Сортируем дежурства по году и месяцу и выгружаем только валидные месяцы (1-12)
             for (duty in duties.sortedWith(compareBy({ it.year }, { it.month }))) {
                 if (duty.dutyDays > 0 && duty.month in 1..12) {
                     val row = dutySheet.createRow(dutyRowIndex++)
@@ -65,8 +66,7 @@ object ExcelExporter {
                 }
             }
 
-            // 3. Лист с тарифами (для точного восстановления расчетов)
-            val tariffList = if (allTariffs.isNotEmpty()) allTariffs else listOfNotNull(activeTariff)
+            // 3. Лист с тарифами (чистые данные для импорта)
             if (tariffList.isNotEmpty()) {
                 val tariffSheet = workbook.createSheet("Тарифы")
                 val tariffHeader = tariffSheet.createRow(0)
@@ -84,6 +84,70 @@ object ExcelExporter {
                     row.createCell(2).setCellValue(t.landHourlyRate)
                     row.createCell(3).setCellValue(t.seaHourlyRate)
                     row.createCell(4).setCellValue(t.dutyDayRate)
+                }
+            }
+
+            // 4. Отдельный лист "Сводка" с финансовым отчетом
+            if (sortedFlights.isNotEmpty() || duties.isNotEmpty()) {
+                try {
+                    val report = CalculationEngine.calculateReport(
+                        flights = sortedFlights,
+                        duties = duties,
+                        tariffs = tariffList
+                    )
+
+                    val summarySheet = workbook.createSheet("Сводка")
+                    var sumRowIdx = 0
+
+                    val titleRow = summarySheet.createRow(sumRowIdx++)
+                    titleRow.createCell(0).setCellValue("ФИНАНСОВЫЙ И ИТОГОВЫЙ ОТЧЕТ")
+
+                    sumRowIdx++ // Пустая строка для красоты
+
+                    fun addSummaryRow(label: String, value: Any) {
+                        val row = summarySheet.createRow(sumRowIdx++)
+                        row.createCell(0).setCellValue(label)
+                        when (value) {
+                            is Double -> row.createCell(1).setCellValue(value)
+                            is Int -> row.createCell(1).setCellValue(value.toDouble())
+                            is String -> row.createCell(1).setCellValue(value)
+                        }
+                    }
+
+                    addSummaryRow("Общий налет", formatMinutesToHHMM(report.totalMinutes))
+                    addSummaryRow("Полетных дней", report.totalFlightDays)
+                    addSummaryRow("Земля (общее)", formatMinutesToHHMM(report.totalLandMinutes))
+                    addSummaryRow("Море (общее)", formatMinutesToHHMM(report.totalSeaMinutes))
+
+                    val totalDutyDays = duties.filter { it.dutyDays > 0 && it.month in 1..12 }.sumOf { it.dutyDays }
+                    if (totalDutyDays > 0) {
+                        addSummaryRow("Дней дежурства (всего)", totalDutyDays)
+                        addSummaryRow("Оплата за дежурство (₽)", report.dutyPayment)
+                    }
+
+                    addSummaryRow("Итоговая выплата (включая дежурство и с вычетом 13% НДФЛ) (₽)", report.totalPayment)
+
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+
+            // Автоподгонка ширины столбцов по содержимому для каждого листа с запасом
+            for (i in 0 until workbook.numberOfSheets) {
+                val sheet = workbook.getSheetAt(i)
+                if (sheet.physicalNumberOfRows > 0) {
+                    val firstRow = sheet.getRow(0)
+                    if (firstRow != null) {
+                        for (colIndex in 0 until firstRow.lastCellNum) {
+                            try {
+                                sheet.autoSizeColumn(colIndex)
+                                val currentWidth = sheet.getColumnWidth(colIndex)
+                                sheet.setColumnWidth(colIndex, Math.max(currentWidth + 1024, 256 * 16))
+                            } catch (e: Exception) {
+                                // Безопасный пропуск
+                            }
+                        }
+                    }
                 }
             }
 
