@@ -29,147 +29,148 @@ object ExcelImporter {
         context.contentResolver.openInputStream(uri)?.use { inputStream ->
             val workbook = WorkbookFactory.create(inputStream)
 
-            for (sheetIndex in 0 until workbook.numberOfSheets) {
-                val sheet = workbook.getSheetAt(sheetIndex)
-                val sheetName = sheet.sheetName.trim().lowercase()
-
+            // Лист 1 (индекс 0): Полеты
+            if (workbook.numberOfSheets > 0) {
+                val sheet = workbook.getSheetAt(0)
                 val rowIterator = sheet.rowIterator()
-                if (!rowIterator.hasNext()) continue
+                if (rowIterator.hasNext()) {
+                    rowIterator.next() // Пропускаем заголовок
+                    while (rowIterator.hasNext()) {
+                        val row = rowIterator.next()
+                        try {
+                            val dateStr = getCellSafe(row, 0)
+                            if (dateStr.isBlank()) continue
 
-                // Читаем заголовок текущего листа для точной идентификации содержимого
-                val headerRow = rowIterator.next()
-                val headerText = (0 until headerRow.lastCellNum)
-                    .map { getCellSafe(headerRow, it).lowercase() }
-                    .joinToString(" ")
+                            val aircraftNum = getCellSafe(row, 1).ifBlank { "б/н" }
+                            val missionNum = getCellSafe(row, 2).ifBlank { null }
+                            val captain = getCellSafe(row, 3).ifBlank { "Не указан" }
 
-                when {
-                    sheetName.contains("тариф") || sheetName.contains("rate") || sheetName.contains("ставк") || 
-                    sheetName.contains("оплат") || headerText.contains("тариф") || (headerText.contains("земл") && headerText.contains("мор")) -> {
-                        while (rowIterator.hasNext()) {
-                            val row = rowIterator.next()
-                            val rowValues = (0 until row.lastCellNum).map { getCellSafe(row, it) }
-                            val numbers = rowValues.mapNotNull { parseCleanDouble(it) }
+                            val landMinutes = parseCellToMinutes(row.getCell(5))
+                            val seaMinutes = parseCellToMinutes(row.getCell(6))
 
-                            var foundYear: Int? = null
-                            var foundMonth: Int? = null
+                            val timestamp = parseDateToTimestamp(dateStr)
 
-                            for (value in rowValues) {
-                                val cleanNum = parseCleanDouble(value)?.toInt()
-                                if (cleanNum != null && cleanNum in 2000..2100) {
-                                    foundYear = cleanNum
-                                    break
-                                }
-                            }
-
-                            for (value in rowValues) {
-                                val month = parseMonth(value)
-                                if (month != null) {
-                                    foundMonth = month
-                                    break
-                                }
-                            }
-
-                            if (foundYear != null && foundMonth != null && numbers.size >= 3) {
-                                val landRate = numbers.getOrNull(numbers.size - 3) ?: 0.0
-                                val seaRate = numbers.getOrNull(numbers.size - 2) ?: 0.0
-                                val dutyRate = numbers.getOrNull(numbers.size - 1) ?: 0.0
-
-                                if (tariffs.none { it.effectiveFromYear == foundYear && it.effectiveFromMonth == foundMonth }) {
-                                    tariffs.add(
-                                        TariffEntity(
-                                            effectiveFromYear = foundYear,
-                                            effectiveFromMonth = foundMonth,
-                                            landHourlyRate = landRate,
-                                            seaHourlyRate = seaRate,
-                                            dutyDayRate = dutyRate
-                                        )
-                                    )
-                                }
-                            }
+                            flights.add(
+                                FlightEntity(
+                                    dateTimestamp = timestamp,
+                                    aircraftNumber = aircraftNum,
+                                    captain = captain,
+                                    missionNumber = missionNum,
+                                    landTimeMinutes = landMinutes,
+                                    seaTimeMinutes = seaMinutes
+                                )
+                            )
+                        } catch (e: Exception) {
+                            e.printStackTrace()
                         }
                     }
+                }
+            }
 
-                    sheetName.contains("дежурст") || sheetName.contains("duty") || headerText.contains("дежур") -> {
-                        while (rowIterator.hasNext()) {
-                            val row = rowIterator.next()
-                            val rowValues = (0 until row.lastCellNum).map { getCellSafe(row, it) }
-                            
-                            var foundYear: Int? = null
-                            var foundMonth: Int? = null
-                            var foundDays: Int? = null
+            // Лист 2 (индекс 1): Дежурства
+            if (workbook.numberOfSheets > 1) {
+                val sheet = workbook.getSheetAt(1)
+                val rowIterator = sheet.rowIterator()
+                if (rowIterator.hasNext()) {
+                    rowIterator.next() // Пропускаем заголовок
+                    while (rowIterator.hasNext()) {
+                        val row = rowIterator.next()
+                        val rowValues = (0 until row.lastCellNum).map { getCellSafe(row, it) }
+                        
+                        var foundYear: Int? = null
+                        var foundMonth: Int? = null
+                        var foundDays: Int? = null
 
-                            for (value in rowValues) {
-                                val cleanNum = parseCleanDouble(value)?.toInt()
-                                if (cleanNum != null && cleanNum in 2000..2100) {
-                                    foundYear = cleanNum
-                                    break
-                                }
-                            }
-
-                            for (value in rowValues) {
-                                val month = parseMonth(value)
-                                if (month != null) {
-                                    foundMonth = month
-                                    break
-                                }
-                            }
-
-                            for (value in rowValues) {
-                                val num = parseCleanDouble(value)?.toInt()
-                                if (num != null && num in 1..31 && num != foundYear && num != foundMonth) {
-                                    foundDays = num
-                                    break
-                                }
-                            }
-
-                            if (foundYear != null && foundMonth != null && foundDays != null) {
-                                if (duties.none { it.year == foundYear && it.month == foundMonth }) {
-                                    duties.add(
-                                        DutyEntity(
-                                            year = foundYear,
-                                            month = foundMonth,
-                                            dutyDays = foundDays
-                                        )
-                                    )
-                                }
+                        for (value in rowValues) {
+                            val cleanNum = parseCleanDouble(value)?.toInt()
+                            if (cleanNum != null && cleanNum in 2000..2100) {
+                                foundYear = cleanNum
+                                break
                             }
                         }
-                    }
 
-                    else -> {
-                        // Лист полетов (индексы: 0 - дата, 1 - ВС, 2 - задание, 3 - КВС, 5 - земля, 6 - море)
-                        while (rowIterator.hasNext()) {
-                            val row = rowIterator.next()
-                            try {
-                                val dateStr = getCellSafe(row, 0)
-                                if (dateStr.isBlank() || !dateStr.contains(".")) continue
+                        for (value in rowValues) {
+                            val month = parseMonth(value)
+                            if (month != null) {
+                                foundMonth = month
+                                break
+                            }
+                        }
 
-                                val aircraftNum = getCellSafe(row, 1).ifBlank { "б/н" }
-                                val missionNum = getCellSafe(row, 2).ifBlank { null }
-                                val captain = getCellSafe(row, 3).ifBlank { "Не указан" }
+                        for (value in rowValues) {
+                            val num = parseCleanDouble(value)?.toInt()
+                            if (num != null && num in 1..31 && num != foundYear && num != foundMonth) {
+                                foundDays = num
+                                break
+                            }
+                        }
 
-                                val landMinutes = parseCellToMinutes(row.getCell(5))
-                                val seaMinutes = parseCellToMinutes(row.getCell(6))
-
-                                val timestamp = parseDateToTimestamp(dateStr)
-
-                                flights.add(
-                                    FlightEntity(
-                                        dateTimestamp = timestamp,
-                                        aircraftNumber = aircraftNum,
-                                        captain = captain,
-                                        missionNumber = missionNum,
-                                        landTimeMinutes = landMinutes,
-                                        seaTimeMinutes = seaMinutes
+                        if (foundYear != null && foundMonth != null && foundDays != null) {
+                            if (duties.none { it.year == foundYear && it.month == foundMonth }) {
+                                duties.add(
+                                    DutyEntity(
+                                        year = foundYear,
+                                        month = foundMonth,
+                                        dutyDays = foundDays
                                     )
                                 )
-                            } catch (e: Exception) {
-                                e.printStackTrace()
                             }
                         }
                     }
                 }
             }
+
+            // Лист 3 (индекс 2): Тарифы
+            if (workbook.numberOfSheets > 2) {
+                val sheet = workbook.getSheetAt(2)
+                val rowIterator = sheet.rowIterator()
+                if (rowIterator.hasNext()) {
+                    rowIterator.next() // Пропускаем заголовок
+                    while (rowIterator.hasNext()) {
+                        val row = rowIterator.next()
+                        val rowValues = (0 until row.lastCellNum).map { getCellSafe(row, it) }
+                        val numbers = rowValues.mapNotNull { parseCleanDouble(it) }
+
+                        var foundYear: Int? = null
+                        var foundMonth: Int? = null
+
+                        for (value in rowValues) {
+                            val cleanNum = parseCleanDouble(value)?.toInt()
+                            if (cleanNum != null && cleanNum in 2000..2100) {
+                                foundYear = cleanNum
+                                break
+                            }
+                        }
+
+                        for (value in rowValues) {
+                            val month = parseMonth(value)
+                            if (month != null) {
+                                foundMonth = month
+                                break
+                            }
+                        }
+
+                        if (foundYear != null && foundMonth != null && numbers.size >= 3) {
+                            val landRate = numbers.getOrNull(numbers.size - 3) ?: 0.0
+                            val seaRate = numbers.getOrNull(numbers.size - 2) ?: 0.0
+                            val dutyRate = numbers.getOrNull(numbers.size - 1) ?: 0.0
+
+                            if (tariffs.none { it.effectiveFromYear == foundYear && it.effectiveFromMonth == foundMonth }) {
+                                tariffs.add(
+                                    TariffEntity(
+                                        effectiveFromYear = foundYear,
+                                        effectiveFromMonth = foundMonth,
+                                        landHourlyRate = landRate,
+                                        seaHourlyRate = seaRate,
+                                        dutyDayRate = dutyRate
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             workbook.close()
         }
 
