@@ -57,6 +57,10 @@ interface DutyDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdate(duty: DutyEntity)
+
+    // Удаление дежурства по периоду
+    @Query("DELETE FROM duty_records WHERE year = :year AND month = :month")
+    suspend fun deleteDutyByPeriod(year: Int, month: Int)
 }
 
 @Dao
