@@ -863,7 +863,7 @@ fun SummaryCard(
     context = context,
     uri = it,
     flights = monthlyFlights,
-    duties = dutyRecords, // Передаем весь список дежурств из базы
+    duties = duties, // Передаем весь список дежурств из базы
     activeTariff = currentTariff,
     allTariffs = allTariffs
 )
