@@ -5,7 +5,6 @@ import android.net.Uri
 import com.example.flightlog.data.db.DutyEntity
 import com.example.flightlog.data.db.FlightEntity
 import com.example.flightlog.data.db.TariffEntity
-import com.example.flightlog.domain.CalculationEngine
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -26,7 +25,7 @@ object ExcelExporter {
             val tariffList = if (allTariffs.isNotEmpty()) allTariffs else listOfNotNull(activeTariff)
             val sortedFlights = flights.sortedBy { it.dateTimestamp }
 
-            // 1. Лист со списком полётов (чистые данные для импорта)
+            // 1. Лист со списком полётов
             val flightSheet = workbook.createSheet("Полёты")
             val flightHeader = flightSheet.createRow(0)
             flightHeader.createCell(0).setCellValue("Дата")
@@ -49,7 +48,7 @@ object ExcelExporter {
                 row.createCell(5).setCellValue(formatMinutesToHHMM(flight.seaTimeMinutes))
             }
 
-            // 2. Лист "Дежурства" с разбивкой по месяцам (чистые данные для импорта)
+            // 2. Лист "Дежурства" с разбивкой по месяцам
             val dutySheet = workbook.createSheet("Дежурства")
             val dutyHeader = dutySheet.createRow(0)
             dutyHeader.createCell(0).setCellValue("Год")
@@ -66,7 +65,7 @@ object ExcelExporter {
                 }
             }
 
-            // 3. Лист с тарифами (чистые данные для импорта)
+            // 3. Лист с тарифами
             if (tariffList.isNotEmpty()) {
                 val tariffSheet = workbook.createSheet("Тарифы")
                 val tariffHeader = tariffSheet.createRow(0)
@@ -85,53 +84,6 @@ object ExcelExporter {
                     row.createCell(3).setCellValue(t.seaHourlyRate)
                     row.createCell(4).setCellValue(t.dutyDayRate)
                 }
-            }
-
-            // 4. Отдельный лист "Сводка" с финансовым отчетом (в защищенном блоке)
-            try {
-                if (sortedFlights.isNotEmpty() || duties.isNotEmpty()) {
-                    val report = CalculationEngine.calculateReport(
-                        flights = sortedFlights,
-                        duties = duties,
-                        tariffs = tariffList
-                    )
-
-                    val summarySheet = workbook.createSheet("Сводка")
-                    var sumRowIdx = 0
-
-                    val titleRow = summarySheet.createRow(sumRowIdx++)
-                    titleRow.createCell(0).setCellValue("ФИНАНСОВЫЙ И ИТОГОВЫЙ ОТЧЕТ")
-
-                    sumRowIdx++ // Пустая строка
-
-                    fun addSummaryRow(label: String, value: Any) {
-                        val row = summarySheet.createRow(sumRowIdx++)
-                        row.createCell(0).setCellValue(label)
-                        when (value) {
-                            is Double -> row.createCell(1).setCellValue(value)
-                            is Int -> row.createCell(1).setCellValue(value.toDouble())
-                            is Long -> row.createCell(1).setCellValue(value.toDouble())
-                            is String -> row.createCell(1).setCellValue(value)
-                        }
-                    }
-
-                    addSummaryRow("Общий налет", formatMinutesToHHMM(report.totalMinutes))
-                    addSummaryRow("Полетных дней", report.totalFlightDays)
-                    addSummaryRow("Земля (общее)", formatMinutesToHHMM(report.totalLandMinutes))
-                    addSummaryRow("Море (общее)", formatMinutesToHHMM(report.totalSeaMinutes))
-
-                    val totalDutyDays = duties.filter { it.dutyDays > 0 && it.month in 1..12 }.sumOf { it.dutyDays }
-                    if (totalDutyDays > 0) {
-                        addSummaryRow("Дней дежурства (всего)", totalDutyDays)
-                        addSummaryRow("Оплата за дежурство (₽)", report.dutyPayment)
-                    }
-
-                    addSummaryRow("Итоговая выплата (включая дежурство и с вычетом 13% НДФЛ) (₽)", report.totalPayment)
-                }
-            } catch (e: Exception) {
-                // Если в расчетах возникнет сбой (например, нет подходящего тарифа),
-                // приложение не упадет, лист просто не добавится, а файл запишется успешно.
-                e.printStackTrace()
             }
 
             // Автоподгонка ширины столбцов по содержимому для каждого листа с запасом
