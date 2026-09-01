@@ -811,17 +811,17 @@ fun StatisticsTabScreen(
         }
         item {
             SummaryCard(
-                report = report,
-                dutyDays = selectedDuty.dutyDays,
-                monthlyFlights = filteredFlights,
-                monthlyDuty = selectedDuty,
-                currentTariff = activeTariff,
-                allTariffs = tariffs,
-                selectedYear = selectedYear,
-                selectedMonth = selectedMonth,
-                onImportSuccess = onImportSuccess
-            )
-        }
+    report = report,
+    dutyDays = selectedDuty.dutyDays,
+    monthlyFlights = filteredFlights,
+    monthlyDuty = selectedDuty,
+    currentTariff = activeTariff,
+    allTariffs = tariffs,
+    allDuties = dutyRecords,
+    selectedYear = selectedYear,
+    selectedMonth = selectedMonth,
+    onImportSuccess = onImportSuccess
+)
         item {
             Text(
                 text = "Полеты за выбранный период (${filteredFlights.size})",
@@ -847,6 +847,7 @@ fun SummaryCard(
     monthlyDuty: DutyEntity?,
     currentTariff: TariffEntity,
     allTariffs: List<TariffEntity>,
+    allDuties: List<DutyEntity>, // <--- Добавляем параметр сюда
     selectedYear: Int,
     selectedMonth: Int,
     onImportSuccess: (List<FlightEntity>, List<DutyEntity>, List<TariffEntity>) -> Unit = { _, _, _ -> }
