@@ -5,6 +5,7 @@ import android.net.Uri
 import com.example.flightlog.data.db.DutyEntity
 import com.example.flightlog.data.db.FlightEntity
 import com.example.flightlog.data.db.TariffEntity
+import com.example.flightlog.domain.CalculationEngine
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -47,6 +48,9 @@ object ExcelExporter {
                 row.createCell(4).setCellValue(formatMinutesToHHMM(flight.landTimeMinutes))
                 row.createCell(5).setCellValue(formatMinutesToHHMM(flight.seaTimeMinutes))
             }
+            for (i in 0..5) {
+                flightSheet.setColumnWidth(i, 20 * 256)
+            }
 
             // 2. Лист "Дежурства" с разбивкой по месяцам
             val dutySheet = workbook.createSheet("Дежурства")
@@ -63,6 +67,9 @@ object ExcelExporter {
                     row.createCell(1).setCellValue(duty.month.toDouble())
                     row.createCell(2).setCellValue(duty.dutyDays.toDouble())
                 }
+            }
+            for (i in 0..2) {
+                dutySheet.setColumnWidth(i, 18 * 256)
             }
 
             // 3. Лист с тарифами
@@ -84,25 +91,57 @@ object ExcelExporter {
                     row.createCell(3).setCellValue(t.seaHourlyRate)
                     row.createCell(4).setCellValue(t.dutyDayRate)
                 }
+                for (i in 0..4) {
+                    tariffSheet.setColumnWidth(i, 20 * 256)
+                }
             }
 
-            // Автоподгонка ширины столбцов по содержимому для каждого листа с запасом
-            for (i in 0 until workbook.numberOfSheets) {
-                val sheet = workbook.getSheetAt(i)
-                if (sheet.physicalNumberOfRows > 0) {
-                    val firstRow = sheet.getRow(0)
-                    if (firstRow != null) {
-                        for (colIndex in 0 until firstRow.lastCellNum) {
-                            try {
-                                sheet.autoSizeColumn(colIndex)
-                                val currentWidth = sheet.getColumnWidth(colIndex)
-                                sheet.setColumnWidth(colIndex, Math.max(currentWidth + 1024, 256 * 16))
-                            } catch (e: Exception) {
-                                // Безопасный пропуск
-                            }
+            // 4. Отдельный лист "Сводка" с финансовым отчетом
+            try {
+                if (sortedFlights.isNotEmpty() || duties.isNotEmpty()) {
+                    val report = CalculationEngine.calculateReport(
+                        flights = sortedFlights,
+                        duties = duties,
+                        tariffs = tariffList
+                    )
+
+                    val summarySheet = workbook.createSheet("Сводка")
+                    var sumRowIdx = 0
+
+                    val titleRow = summarySheet.createRow(sumRowIdx++)
+                    titleRow.createCell(0).setCellValue("ФИНАНСОВЫЙ И ИТОГОВЫЙ ОТЧЕТ")
+
+                    sumRowIdx++ // Пустая строка
+
+                    fun addSummaryRow(label: String, value: Any) {
+                        val row = summarySheet.createRow(sumRowIdx++)
+                        row.createCell(0).setCellValue(label)
+                        when (value) {
+                            is Double -> row.createCell(1).setCellValue(value)
+                            is Int -> row.createCell(1).setCellValue(value.toDouble())
+                            is Long -> row.createCell(1).setCellValue(value.toDouble())
+                            is String -> row.createCell(1).setCellValue(value)
                         }
                     }
+
+                    addSummaryRow("Общий налет", formatMinutesToHHMM(report.totalMinutes))
+                    addSummaryRow("Полетных дней", report.totalFlightDays)
+                    addSummaryRow("Земля (общее)", formatMinutesToHHMM(report.totalLandMinutes))
+                    addSummaryRow("Море (общее)", formatMinutesToHHMM(report.totalSeaMinutes))
+
+                    val totalDutyDays = duties.filter { it.dutyDays > 0 && it.month in 1..12 }.sumOf { it.dutyDays }
+                    if (totalDutyDays > 0) {
+                        addSummaryRow("Дней дежурства (всего)", totalDutyDays)
+                        addSummaryRow("Оплата за дежурство (₽)", report.dutyPayment)
+                    }
+
+                    addSummaryRow("Итоговая выплата (включая дежурство и с вычетом 13% НДФЛ) (₽)", report.totalPayment)
+
+                    summarySheet.setColumnWidth(0, 50 * 256)
+                    summarySheet.setColumnWidth(1, 20 * 256)
                 }
+            } catch (e: Throwable) {
+                e.printStackTrace()
             }
 
             // Сохранение файла
@@ -111,7 +150,7 @@ object ExcelExporter {
             }
             workbook.close()
             true
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             e.printStackTrace()
             false
         }
