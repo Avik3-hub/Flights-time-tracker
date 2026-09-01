@@ -47,7 +47,7 @@ object ExcelExporter {
                 row.createCell(5).setCellValue(formatMinutesToHHMM(flight.seaTimeMinutes))
             }
 
-            // 2. Отдельный лист "Дежурства" с разбивкой ПО МЕСЯЦАМ
+              // 2. Отдельный лист "Дежурства" с разбивкой ПО МЕСЯЦАМ
             val dutySheet = workbook.createSheet("Дежурства")
             val dutyHeader = dutySheet.createRow(0)
             dutyHeader.createCell(0).setCellValue("Год")
@@ -55,12 +55,12 @@ object ExcelExporter {
             dutyHeader.createCell(2).setCellValue("Дней дежурства")
 
             var dutyRowIndex = 1
-            // Сортируем дежурства по году и месяцу
+            // Сортируем дежурства по году и месяцу и выгружаем только валидные месяцы (1-12)
             for (duty in duties.sortedWith(compareBy({ it.year }, { it.month }))) {
-                if (duty.dutyDays > 0) {
+                if (duty.dutyDays > 0 && duty.month in 1..12) {
                     val row = dutySheet.createRow(dutyRowIndex++)
                     row.createCell(0).setCellValue(duty.year.toDouble())
-                    row.createCell(1).setCellValue(duty.month.toDouble()) // Числовой номер месяца (1-12)
+                    row.createCell(1).setCellValue(duty.month.toDouble())
                     row.createCell(2).setCellValue(duty.dutyDays.toDouble())
                 }
             }
