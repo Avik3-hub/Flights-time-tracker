@@ -33,28 +33,36 @@ object ExcelImporter {
                 val sheet = workbook.getSheetAt(sheetIndex)
                 val sheetName = sheet.sheetName.trim().lowercase()
 
+                val rowIterator = sheet.rowIterator()
+                if (!rowIterator.hasNext()) continue
+
+                // Читаем заголовок для поиска колонок
+                val headerRow = rowIterator.next()
+                val headers = mutableMapOf<String, Int>()
+                for (cell in headerRow) {
+                    val text = getCellSafe(headerRow, cell.columnIndex).lowercase()
+                    if (text.isNotBlank()) {
+                        headers[text] = cell.columnIndex
+                    }
+                }
+
                 when {
                     sheetName.contains("тариф") || sheetName.contains("rate") || sheetName.contains("ставка") || sheetName.contains("опл") -> {
-                        val rows = sheet.rowIterator()
-                        if (rows.hasNext()) rows.next() // Пропускаем заголовок
-                        while (rows.hasNext()) {
-                            val row = rows.next()
-                            // Пытаемся найти год, месяц и ставки независимо от пустых ячеек спереди
+                        while (rowIterator.hasNext()) {
+                            val row = rowIterator.next()
                             val year = parseCleanDouble(getCellSafe(row, 0))?.toInt() 
                                 ?: parseCleanDouble(getCellSafe(row, 1))?.toInt()
                             val monthStr = getCellSafe(row, 1).ifBlank { getCellSafe(row, 2) }
                             val month = parseMonth(monthStr)
-                            
-                            // Собираем все числа из строки в надежде найти тарифы (земля, море, дежурство)
+
                             val numbers = (0 until row.lastCellNum).mapNotNull { 
                                 parseCleanDouble(getCellSafe(row, it)) 
                             }
 
-                            if (year != null && month != null && numbers.size >= 5) {
-                                // Если в строке много чисел, берем последние три как ставки
-                                val landRate = numbers[numbers.size - 3]
-                                val seaRate = numbers[numbers.size - 2]
-                                val dutyRate = numbers[numbers.size - 1]
+                            if (year != null && month != null && numbers.size >= 3) {
+                                val landRate = numbers.getOrNull(numbers.size - 3) ?: 0.0
+                                val seaRate = numbers.getOrNull(numbers.size - 2) ?: 0.0
+                                val dutyRate = numbers.getOrNull(numbers.size - 1) ?: 0.0
 
                                 tariffs.add(
                                     TariffEntity(
@@ -65,32 +73,13 @@ object ExcelImporter {
                                         dutyDayRate = dutyRate
                                     )
                                 )
-                            } else {
-                                // Классический парсинг по индексам
-                                val landRate = parseCleanDouble(getCellSafe(row, 2))
-                                val seaRate = parseCleanDouble(getCellSafe(row, 3))
-                                val dutyRate = parseCleanDouble(getCellSafe(row, 4))
-
-                                if (year != null && month != null && landRate != null && seaRate != null && dutyRate != null) {
-                                    tariffs.add(
-                                        TariffEntity(
-                                            effectiveFromYear = year,
-                                            effectiveFromMonth = month,
-                                            landHourlyRate = landRate,
-                                            seaHourlyRate = seaRate,
-                                            dutyDayRate = dutyRate
-                                        )
-                                    )
-                                }
                             }
                         }
                     }
 
                     sheetName.contains("дежурст") || sheetName.contains("duty") -> {
-                        val rows = sheet.rowIterator()
-                        if (rows.hasNext()) rows.next()
-                        while (rows.hasNext()) {
-                            val row = rows.next()
+                        while (rowIterator.hasNext()) {
+                            val row = rowIterator.next()
                             val year = parseCleanDouble(getCellSafe(row, 0))?.toInt()
                             val month = parseMonth(getCellSafe(row, 1))
                             val days = parseCleanDouble(getCellSafe(row, 2))?.toInt()
@@ -108,34 +97,42 @@ object ExcelImporter {
                     }
 
                     else -> {
-                        // Лист полетов или дефолтный лист
-                        val rows = sheet.rowIterator()
-                        if (rows.hasNext()) rows.next()
-                        while (rows.hasNext()) {
-                            val row = rows.next()
+                        // Определяем индексы колонок полетов
+                        val dateCol = findColumnIndex(headers, listOf("дат", "date")) ?: 0
+                        val acCol = findColumnIndex(headers, listOf("вс", "тип", "самолет", "номер")) ?: 1
+                        val missionCol = findColumnIndex(headers, listOf("задан", "№", "миссия")) ?: 2
+                        val captainCol = findColumnIndex(headers, listOf("квс", "командир", "фио")) ?: 3
+
+                        // Ищем колонки земли и моря по заголовкам
+                        val landCol = findColumnIndex(headers, listOf("земл")) ?: 4
+                        val seaCol = findColumnIndex(headers, listOf("мор")) ?: 5
+
+                        while (rowIterator.hasNext()) {
+                            val row = rowIterator.next()
                             try {
-                                val dateStr = getCellSafe(row, 0)
-                                val aircraftNum = getCellSafe(row, 1)
-                                val missionNum = getCellSafe(row, 2)
-                                val captain = getCellSafe(row, 3)
+                                val dateStr = getCellSafe(row, dateCol)
+                                if (dateStr.isBlank() || !dateStr.contains(".")) continue
 
-                                val landMinutes = parseCellToMinutes(row.getCell(4))
-                                val seaMinutes = parseCellToMinutes(row.getCell(5))
+                                val aircraftNum = getCellSafe(row, acCol).ifBlank { getCellSafe(row, 1) }
+                                val missionNum = getCellSafe(row, missionCol).ifBlank { null }
+                                val captain = getCellSafe(row, captainCol).ifBlank { getCellSafe(row, 3) }
 
-                                if (dateStr.isNotBlank() && dateStr.contains(".")) {
-                                    val timestamp = parseDateToTimestamp(dateStr)
+                                // Безопасное чтение минут: берем из найденных колонок или ищем в строке число/время
+                                val landMinutes = parseCellToMinutes(row.getCell(landCol))
+                                val seaMinutes = parseCellToMinutes(row.getCell(seaCol))
 
-                                    flights.add(
-                                        FlightEntity(
-                                            dateTimestamp = timestamp,
-                                            aircraftNumber = aircraftNum.ifBlank { "б/н" },
-                                            captain = captain.ifBlank { "Не указан" },
-                                            missionNumber = missionNum.ifBlank { null },
-                                            landTimeMinutes = landMinutes,
-                                            seaTimeMinutes = seaMinutes
-                                        )
+                                val timestamp = parseDateToTimestamp(dateStr)
+
+                                flights.add(
+                                    FlightEntity(
+                                        dateTimestamp = timestamp,
+                                        aircraftNumber = aircraftNum.ifBlank { "б/н" },
+                                        captain = captain.ifBlank { "Не указан" },
+                                        missionNumber = missionNum,
+                                        landTimeMinutes = landMinutes,
+                                        seaTimeMinutes = seaMinutes
                                     )
-                                }
+                                )
                             } catch (e: Exception) {
                                 e.printStackTrace()
                             }
@@ -147,6 +144,15 @@ object ExcelImporter {
         }
 
         return ImportResult(flights, duties, tariffs)
+    }
+
+    private fun findColumnIndex(headers: Map<String, Int>, keywords: List<String>): Int? {
+        for ((headerText, index) in headers) {
+            if (keywords.any { headerText.contains(it) }) {
+                return index
+            }
+        }
+        return null
     }
 
     private fun parseCleanDouble(value: String): Double? {
@@ -195,9 +201,7 @@ object ExcelImporter {
                     (numeric * 60.0).toInt()
                 }
             }
-            CellType.STRING -> {
-                parseTimeToMinutes(cell.stringCellValue)
-            }
+            CellType.STRING -> parseTimeToMinutes(cell.stringCellValue)
             CellType.FORMULA -> {
                 runCatching {
                     val numeric = cell.numericCellValue
