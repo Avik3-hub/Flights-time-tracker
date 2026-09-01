@@ -34,11 +34,11 @@ object ExcelImporter {
                 val sheetName = sheet.sheetName.trim()
 
                 // 1. Чтение тарифов
-                if (sheetName.equals("Тарифы", ignoreCase = true)) {
+                if (sheetName.contains("тариф", ignoreCase = true)) {
                     for (rowIndex in 1..sheet.lastRowNum) {
                         val row = sheet.getRow(rowIndex) ?: continue
-                        val year = getCellSafe(row, 0).toIntOrNull()
-                        val month = getCellSafe(row, 1).toIntOrNull()
+                        val year = getCellSafe(row, 0).toDoubleOrNull()?.toInt()
+                        val month = parseMonth(getCellSafe(row, 1))
                         val landRate = getCellSafe(row, 2).toDoubleOrNull()
                         val seaRate = getCellSafe(row, 3).toDoubleOrNull()
                         val dutyRate = getCellSafe(row, 4).toDoubleOrNull()
@@ -59,12 +59,12 @@ object ExcelImporter {
                 }
 
                 // 2. Чтение дежурств (отдельный лист)
-                if (sheetName.equals("Дежурства", ignoreCase = true)) {
+                if (sheetName.contains("дежурст", ignoreCase = true)) {
                     for (rowIndex in 1..sheet.lastRowNum) {
                         val row = sheet.getRow(rowIndex) ?: continue
-                        val year = getCellSafe(row, 0).toIntOrNull()
-                        val month = getCellSafe(row, 1).toIntOrNull()
-                        val days = getCellSafe(row, 2).toIntOrNull()
+                        val year = getCellSafe(row, 0).toDoubleOrNull()?.toInt()
+                        val month = parseMonth(getCellSafe(row, 1))
+                        val days = getCellSafe(row, 2).toDoubleOrNull()?.toInt()
 
                         if (year != null && month != null && days != null && days > 0) {
                             duties.add(
@@ -154,6 +154,22 @@ object ExcelImporter {
             }
             else -> ""
         }
+    }
+
+    private fun parseMonth(monthStr: String): Int? {
+        if (monthStr.isBlank()) return null
+        val clean = monthStr.trim().lowercase()
+
+        clean.toDoubleOrNull()?.toInt()?.let {
+            if (it in 1..12) return it
+        }
+
+        val months = listOf(
+            "янв", "фев", "мар", "апр", "маи", "май", "июн",
+            "июл", "авг", "сен", "окт", "ноя", "дек"
+        )
+        val index = months.indexOfFirst { clean.contains(it) }
+        return if (index >= 0) index + 1 else null
     }
 
     private fun parseTimeToMinutes(timeStr: String): Int {
