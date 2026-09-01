@@ -34,18 +34,28 @@ object ExcelImporter {
                 val sheetName = sheet.sheetName.trim().lowercase()
 
                 when {
-                    sheetName.contains("тариф") || sheetName.contains("rate") || sheetName.contains("ставка") -> {
+                    sheetName.contains("тариф") || sheetName.contains("rate") || sheetName.contains("ставка") || sheetName.contains("опл") -> {
                         val rows = sheet.rowIterator()
-                        if (rows.hasNext()) rows.next()
+                        if (rows.hasNext()) rows.next() // Пропускаем заголовок
                         while (rows.hasNext()) {
                             val row = rows.next()
-                            val year = parseCleanDouble(getCellSafe(row, 0))?.toInt()
-                            val month = parseMonth(getCellSafe(row, 1))
-                            val landRate = parseCleanDouble(getCellSafe(row, 2))
-                            val seaRate = parseCleanDouble(getCellSafe(row, 3))
-                            val dutyRate = parseCleanDouble(getCellSafe(row, 4))
+                            // Пытаемся найти год, месяц и ставки независимо от пустых ячеек спереди
+                            val year = parseCleanDouble(getCellSafe(row, 0))?.toInt() 
+                                ?: parseCleanDouble(getCellSafe(row, 1))?.toInt()
+                            val monthStr = getCellSafe(row, 1).ifBlank { getCellSafe(row, 2) }
+                            val month = parseMonth(monthStr)
+                            
+                            // Собираем все числа из строки в надежде найти тарифы (земля, море, дежурство)
+                            val numbers = (0 until row.lastCellNum).mapNotNull { 
+                                parseCleanDouble(getCellSafe(row, it)) 
+                            }
 
-                            if (year != null && month != null && landRate != null && seaRate != null && dutyRate != null) {
+                            if (year != null && month != null && numbers.size >= 5) {
+                                // Если в строке много чисел, берем последние три как ставки
+                                val landRate = numbers[numbers.size - 3]
+                                val seaRate = numbers[numbers.size - 2]
+                                val dutyRate = numbers[numbers.size - 1]
+
                                 tariffs.add(
                                     TariffEntity(
                                         effectiveFromYear = year,
@@ -55,6 +65,23 @@ object ExcelImporter {
                                         dutyDayRate = dutyRate
                                     )
                                 )
+                            } else {
+                                // Классический парсинг по индексам
+                                val landRate = parseCleanDouble(getCellSafe(row, 2))
+                                val seaRate = parseCleanDouble(getCellSafe(row, 3))
+                                val dutyRate = parseCleanDouble(getCellSafe(row, 4))
+
+                                if (year != null && month != null && landRate != null && seaRate != null && dutyRate != null) {
+                                    tariffs.add(
+                                        TariffEntity(
+                                            effectiveFromYear = year,
+                                            effectiveFromMonth = month,
+                                            landHourlyRate = landRate,
+                                            seaHourlyRate = seaRate,
+                                            dutyDayRate = dutyRate
+                                        )
+                                    )
+                                }
                             }
                         }
                     }
@@ -81,6 +108,7 @@ object ExcelImporter {
                     }
 
                     else -> {
+                        // Лист полетов или дефолтный лист
                         val rows = sheet.rowIterator()
                         if (rows.hasNext()) rows.next()
                         while (rows.hasNext()) {
@@ -91,13 +119,11 @@ object ExcelImporter {
                                 val missionNum = getCellSafe(row, 2)
                                 val captain = getCellSafe(row, 3)
 
-                                val landCellVal = getCellSafe(row, 4)
-                                val seaCellVal = getCellSafe(row, 5)
+                                val landMinutes = parseCellToMinutes(row.getCell(4))
+                                val seaMinutes = parseCellToMinutes(row.getCell(5))
 
-                                if (dateStr.isNotBlank()) {
+                                if (dateStr.isNotBlank() && dateStr.contains(".")) {
                                     val timestamp = parseDateToTimestamp(dateStr)
-                                    val landMinutes = parseTimeToMinutes(landCellVal, getCellNumericSafe(row.getCell(4)))
-                                    val seaMinutes = parseTimeToMinutes(seaCellVal, getCellNumericSafe(row.getCell(5)))
 
                                     flights.add(
                                         FlightEntity(
@@ -158,33 +184,37 @@ object ExcelImporter {
         }
     }
 
-    private fun getCellNumericSafe(cell: Cell?): Double? {
-        if (cell == null) return null
+    private fun parseCellToMinutes(cell: Cell?): Int {
+        if (cell == null) return 0
         return when (cell.cellType) {
-            CellType.NUMERIC -> cell.numericCellValue
-            CellType.FORMULA -> runCatching { cell.numericCellValue }.getOrNull()
-            else -> null
-        }
-    }
-
-    private fun parseMonth(monthStr: String): Int? {
-        if (monthStr.isBlank()) return null
-        val clean = monthStr.trim().lowercase()
-        parseCleanDouble(clean)?.toInt()?.let {
-            if (it in 1..12) return it
-        }
-        val months = listOf("янв", "фев", "мар", "апр", "маи", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек")
-        val index = months.indexOfFirst { clean.contains(it) }
-        return if (index >= 0) index + 1 else null
-    }
-
-    private fun parseTimeToMinutes(timeStr: String, rawNumeric: Double? = null): Int {
-        if (rawNumeric != null && rawNumeric > 0.0 && !timeStr.contains(":")) {
-            if (rawNumeric < 1.0) {
-                return (rawNumeric * 24.0 * 60.0).toInt()
+            CellType.NUMERIC -> {
+                val numeric = cell.numericCellValue
+                if (DateUtil.isCellDateFormatted(cell)) {
+                    (numeric * 24.0 * 60.0).toInt()
+                } else {
+                    (numeric * 60.0).toInt()
+                }
             }
+            CellType.STRING -> {
+                parseTimeToMinutes(cell.stringCellValue)
+            }
+            CellType.FORMULA -> {
+                runCatching {
+                    val numeric = cell.numericCellValue
+                    if (DateUtil.isCellDateFormatted(cell)) {
+                        (numeric * 24.0 * 60.0).toInt()
+                    } else {
+                        (numeric * 60.0).toInt()
+                    }
+                }.getOrElse {
+                    parseTimeToMinutes(cell.stringCellValue)
+                }
+            }
+            else -> 0
         }
+    }
 
+    private fun parseTimeToMinutes(timeStr: String): Int {
         if (timeStr.isBlank()) return 0
         val clean = timeStr.trim().lowercase()
 
@@ -198,6 +228,17 @@ object ExcelImporter {
         val normalizedDouble = clean.replace(',', '.')
         val doubleHours = normalizedDouble.toDoubleOrNull() ?: 0.0
         return (doubleHours * 60).toInt()
+    }
+
+    private fun parseMonth(monthStr: String): Int? {
+        if (monthStr.isBlank()) return null
+        val clean = monthStr.trim().lowercase()
+        parseCleanDouble(clean)?.toInt()?.let {
+            if (it in 1..12) return it
+        }
+        val months = listOf("янв", "фев", "мар", "апр", "маи", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек")
+        val index = months.indexOfFirst { clean.contains(it) }
+        return if (index >= 0) index + 1 else null
     }
 
     private fun parseDateToTimestamp(dateStr: String): Long {
