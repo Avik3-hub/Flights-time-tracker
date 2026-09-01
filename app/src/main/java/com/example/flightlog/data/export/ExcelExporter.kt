@@ -15,7 +15,7 @@ object ExcelExporter {
         context: Context,
         uri: Uri,
         flights: List<FlightEntity>,
-        duty: DutyEntity?,
+        duties: List<DutyEntity>,
         activeTariff: TariffEntity,
         allTariffs: List<TariffEntity> = emptyList()
     ): Boolean {
@@ -34,16 +34,15 @@ object ExcelExporter {
                 sheet.width(3, 14.0) // 3: КВС
                 sheet.width(4, 15.0) // 4: Земля
                 sheet.width(5, 15.0) // 5: Море
-                sheet.width(6, 16.0) // 6: Дежурство
 
-                val headers = listOf("Дата", "№ ВС", "Задание", "КВС", "Земля", "Море", "Дежурство (дн.)")
+                val headers = listOf("Дата", "№ ВС", "Задание", "КВС", "Земля", "Море")
                 headers.forEachIndexed { col, title ->
                     sheet.value(0, col, title)
                     sheet.style(0, col).bold().fillColor("E0E0E0").horizontalAlignment("center").set()
                 }
 
                 var row = 1
-                flights.forEachIndexed { index, flight ->
+                flights.forEach { flight ->
                     sheet.value(row, 0, formatDate(flight.dateTimestamp))
                     sheet.value(row, 1, flight.aircraftNumber)
                     sheet.value(row, 2, flight.missionNumber ?: "")
@@ -55,17 +54,6 @@ object ExcelExporter {
                     sheet.value(row, 5, flight.seaTimeMinutes.minutesToHoursAndMinutes())
                     sheet.style(row, 5).fillColor("C6D9F1").horizontalAlignment("center").set()
 
-                    if (index == 0 && duty != null && duty.dutyDays > 0) {
-                        sheet.value(row, 6, duty.dutyDays)
-                        sheet.style(row, 6).horizontalAlignment("center").set()
-                    }
-
-                    row++
-                }
-
-                if (flights.isEmpty() && duty != null && duty.dutyDays > 0) {
-                    sheet.value(row, 6, duty.dutyDays)
-                    sheet.style(row, 6).horizontalAlignment("center").set()
                     row++
                 }
 
@@ -76,8 +64,8 @@ object ExcelExporter {
                 val seaPayment = (totalSeaMinutes / 60.0) * activeTariff.seaHourlyRate * 0.87
                 val flightPayment = landPayment + seaPayment
 
-                val dutyDays = duty?.dutyDays ?: 0
-                val dutyPayment = dutyDays * activeTariff.dutyDayRate * 0.87
+                val totalDutyDays = duties.sumOf { it.dutyDays }
+                val dutyPayment = totalDutyDays * activeTariff.dutyDayRate * 0.87
 
                 val grandTotalPayment = flightPayment + dutyPayment
 
@@ -107,7 +95,7 @@ object ExcelExporter {
                 sheet.style(row, 5).horizontalAlignment("center").set()
                 row++
 
-                sheet.value(row, 4, "Дежурство:")
+                sheet.value(row, 4, "Дежурство ($totalDutyDays дн.):")
                 sheet.style(row, 4).bold().horizontalAlignment("right").set()
 
                 sheet.value(row, 5, "${String.format("%.2f", dutyPayment)} руб.")
@@ -124,7 +112,31 @@ object ExcelExporter {
                 sheet.style(row, 4).bold().fillColor("FCE4D6").horizontalAlignment("center").set()
 
                 // -------------------------------------------------------------
-                // Лист 2: История Тарифов
+                // Лист 2: Дежурства по месяцах
+                // -------------------------------------------------------------
+                if (duties.isNotEmpty()) {
+                    val dutySheet = workbook.newWorksheet("Дежурства")
+
+                    dutySheet.width(0, 12.0)
+                    dutySheet.width(1, 12.0)
+                    dutySheet.width(2, 20.0)
+
+                    val dutyHeaders = listOf("Год", "Месяц", "Дни дежурства")
+                    dutyHeaders.forEachIndexed { col, title ->
+                        dutySheet.value(0, col, title)
+                        dutySheet.style(0, col).bold().fillColor("E0E0E0").horizontalAlignment("center").set()
+                    }
+
+                    duties.forEachIndexed { index, d ->
+                        val dRow = index + 1
+                        dutySheet.value(dRow, 0, d.year)
+                        dutySheet.value(dRow, 1, d.month)
+                        dutySheet.value(dRow, 2, d.dutyDays)
+                    }
+                }
+
+                // -------------------------------------------------------------
+                // Лист 3: История Тарифов
                 // -------------------------------------------------------------
                 if (allTariffs.isNotEmpty()) {
                     val tariffSheet = workbook.newWorksheet("Тарифы")
