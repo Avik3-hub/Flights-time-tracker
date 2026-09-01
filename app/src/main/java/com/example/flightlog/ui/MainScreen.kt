@@ -54,6 +54,16 @@ fun MainScreen(
     onSaveTariff: (TariffEntity) -> Unit = {},
     onSettingsClick: () -> Unit
 ) {
+    val context = LocalContext.current
+    val versionName = remember {
+        try {
+            val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+            packageInfo.versionName ?: ""
+        } catch (e: Exception) {
+            ""
+        }
+    }
+
     val pagerState = rememberPagerState(pageCount = { 2 })
     val coroutineScope = rememberCoroutineScope()
     var flightToEdit by remember { mutableStateOf<FlightEntity?>(null) }
@@ -62,7 +72,18 @@ fun MainScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Счетчик налета") },
+                title = {
+                    Column {
+                        Text("Счетчик налета")
+                        if (versionName.isNotBlank()) {
+                            Text(
+                                text = "в. $versionName",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                            )
+                        }
+                    }
+                },
                 actions = {
                     Box {
                         IconButton(onClick = { menuExpanded = true }) {
@@ -162,6 +183,7 @@ fun MainScreen(
         )
     }
 }
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
