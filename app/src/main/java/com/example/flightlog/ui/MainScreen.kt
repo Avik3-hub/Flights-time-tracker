@@ -77,7 +77,7 @@ fun MainScreen(
                         Text("Счетчик налета")
                         if (versionName.isNotBlank()) {
                             Text(
-                                text = "в. $versionName",
+                                text = "v. $versionName",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                             )
