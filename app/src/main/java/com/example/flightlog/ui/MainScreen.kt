@@ -822,6 +822,7 @@ fun StatisticsTabScreen(
     selectedMonth = selectedMonth,
     onImportSuccess = onImportSuccess
 )
+        }
         item {
             Text(
                 text = "Полеты за выбранный период (${filteredFlights.size})",
@@ -864,7 +865,7 @@ fun SummaryCard(
     context = context,
     uri = it,
     flights = monthlyFlights,
-    duties = dutyRecords, // Передаем весь список дежурств из базы
+    duties = allDuties, // Передаем весь список дежурств из базы
     activeTariff = currentTariff,
     allTariffs = allTariffs
 )
