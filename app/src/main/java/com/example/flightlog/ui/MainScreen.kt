@@ -150,6 +150,7 @@ fun MainScreen(
             }
         }
     }
+
     flightToEdit?.let { flight ->
         EditFlightDialog(
             flight = flight,
@@ -204,7 +205,6 @@ fun InputTabScreen(
     val currentCal = remember { Calendar.getInstance() }
     var dutyYear by remember { mutableIntStateOf(currentCal.get(Calendar.YEAR)) }
     var dutyMonth by remember { mutableIntStateOf(currentCal.get(Calendar.MONTH) + 1) }
-
     val existingDuty = remember(dutyRecords, dutyYear, dutyMonth) {
         dutyRecords.find { it.year == dutyYear && it.month == dutyMonth }
     }
@@ -512,6 +512,7 @@ fun InputTabScreen(
             }
         }
     }
+
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = selectedDateMillis)
         DatePickerDialog(
@@ -531,6 +532,7 @@ fun InputTabScreen(
             DatePicker(state = datePickerState)
         }
     }
+
     if (showLandTimePicker) {
         TimeSelectionDialog(
             initialHour = landHours,
@@ -543,6 +545,7 @@ fun InputTabScreen(
             }
         )
     }
+
     if (showSeaTimePicker) {
         TimeSelectionDialog(
             initialHour = seaHours,
@@ -607,8 +610,8 @@ fun StatisticsTabScreen(
     var endDay by remember { mutableStateOf<Int?>(null) }
     var startDropdownExpanded by remember { mutableStateOf(false) }
     var endDropdownExpanded by remember { mutableStateOf(false) }
-    val daysOptions = remember { listOf(null) + (1..31).toList() }
 
+    val daysOptions = remember { listOf(null) + (1..31).toList() }
     val yearsList = remember(flights, dutyRecords) {
         val flightYears = flights.map {
             Calendar.getInstance().apply { timeInMillis = it.dateTimestamp }.get(Calendar.YEAR)
@@ -856,14 +859,14 @@ fun SummaryCard(
         contract = ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     ) { uri ->
         uri?.let {
-         val success = ExcelExporter.exportToExcel(
-    context = context,
-    uri = it,
-    flights = monthlyFlights,
-    duties = listOfNotNull(monthlyDuty),
-    activeTariff = currentTariff,
-    allTariffs = allTariffs
-)
+            val success = ExcelExporter.exportToExcel(
+                context = context,
+                uri = it,
+                flights = monthlyFlights,
+                duties = listOfNotNull(monthlyDuty),
+                activeTariff = currentTariff,
+                allTariffs = allTariffs
+            )
             if (success) {
                 Toast.makeText(context, "Отчет сохранен в Excel!", Toast.LENGTH_LONG).show()
             } else {
@@ -1205,6 +1208,7 @@ fun EditFlightDialog(
             }
         }
     )
+
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = dateMillis)
         DatePickerDialog(
@@ -1224,6 +1228,7 @@ fun EditFlightDialog(
             DatePicker(state = datePickerState)
         }
     }
+
     if (showLandTimePicker) {
         TimeSelectionDialog(
             initialHour = landHours,
@@ -1236,6 +1241,7 @@ fun EditFlightDialog(
             }
         )
     }
+
     if (showSeaTimePicker) {
         TimeSelectionDialog(
             initialHour = seaHours,
