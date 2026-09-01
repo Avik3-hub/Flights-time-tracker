@@ -28,20 +28,22 @@ object ExcelImporter {
 
         context.contentResolver.openInputStream(uri)?.use { inputStream ->
             val workbook = WorkbookFactory.create(inputStream)
-            
+
             for (sheetIndex in 0 until workbook.numberOfSheets) {
                 val sheet = workbook.getSheetAt(sheetIndex)
                 val sheetName = sheet.sheetName.trim()
 
                 // 1. Чтение тарифов
                 if (sheetName.contains("тариф", ignoreCase = true)) {
-                    for (rowIndex in 1..sheet.lastRowNum) {
-                        val row = sheet.getRow(rowIndex) ?: continue
-                        val year = getCellSafe(row, 0).toDoubleOrNull()?.toInt()
+                    val rows = sheet.rowIterator()
+                    if (rows.hasNext()) rows.next()
+                    while (rows.hasNext()) {
+                        val row = rows.next()
+                        val year = parseCleanDouble(getCellSafe(row, 0))?.toInt()
                         val month = parseMonth(getCellSafe(row, 1))
-                        val landRate = getCellSafe(row, 2).toDoubleOrNull()
-                        val seaRate = getCellSafe(row, 3).toDoubleOrNull()
-                        val dutyRate = getCellSafe(row, 4).toDoubleOrNull()
+                        val landRate = parseCleanDouble(getCellSafe(row, 2))
+                        val seaRate = parseCleanDouble(getCellSafe(row, 3))
+                        val dutyRate = parseCleanDouble(getCellSafe(row, 4))
 
                         if (year != null && month != null && landRate != null && seaRate != null && dutyRate != null) {
                             tariffs.add(
@@ -58,13 +60,15 @@ object ExcelImporter {
                     continue
                 }
 
-                // 2. Чтение дежурств (отдельный лист)
+                // 2. Чтение дежурств
                 if (sheetName.contains("дежурст", ignoreCase = true)) {
-                    for (rowIndex in 1..sheet.lastRowNum) {
-                        val row = sheet.getRow(rowIndex) ?: continue
-                        val year = getCellSafe(row, 0).toDoubleOrNull()?.toInt()
+                    val rows = sheet.rowIterator()
+                    if (rows.hasNext()) rows.next()
+                    while (rows.hasNext()) {
+                        val row = rows.next()
+                        val year = parseCleanDouble(getCellSafe(row, 0))?.toInt()
                         val month = parseMonth(getCellSafe(row, 1))
-                        val days = getCellSafe(row, 2).toDoubleOrNull()?.toInt()
+                        val days = parseCleanDouble(getCellSafe(row, 2))?.toInt()
 
                         if (year != null && month != null && days != null && days > 0) {
                             duties.add(
@@ -80,11 +84,10 @@ object ExcelImporter {
                 }
 
                 // 3. Чтение полётов
-                var sheetMonth = getMonthIndex(sheetName)
-                var sheetYear = 2026
-
-                for (rowIndex in 1..sheet.lastRowNum) {
-                    val row = sheet.getRow(rowIndex) ?: continue
+                val rows = sheet.rowIterator()
+                if (rows.hasNext()) rows.next()
+                while (rows.hasNext()) {
+                    val row = rows.next()
                     try {
                         val dateStr = getCellSafe(row, 0)
                         val aircraftNum = getCellSafe(row, 1)
@@ -108,12 +111,6 @@ object ExcelImporter {
                                     seaTimeMinutes = seaMinutes
                                 )
                             )
-
-                            if (timestamp > 0) {
-                                val cal = Calendar.getInstance().apply { timeInMillis = timestamp }
-                                sheetMonth = cal.get(Calendar.MONTH) + 1
-                                sheetYear = cal.get(Calendar.YEAR)
-                            }
                         }
                     } catch (e: Exception) {
                         e.printStackTrace()
@@ -124,6 +121,11 @@ object ExcelImporter {
         }
 
         return ImportResult(flights, duties, tariffs)
+    }
+
+    private fun parseCleanDouble(value: String): Double? {
+        if (value.isBlank()) return null
+        return value.trim().replace(',', '.').toDoubleOrNull()
     }
 
     private fun getCellSafe(row: Row, index: Int): String {
@@ -159,15 +161,10 @@ object ExcelImporter {
     private fun parseMonth(monthStr: String): Int? {
         if (monthStr.isBlank()) return null
         val clean = monthStr.trim().lowercase()
-
-        clean.toDoubleOrNull()?.toInt()?.let {
+        parseCleanDouble(clean)?.toInt()?.let {
             if (it in 1..12) return it
         }
-
-        val months = listOf(
-            "янв", "фев", "мар", "апр", "маи", "май", "июн",
-            "июл", "авг", "сен", "окт", "ноя", "дек"
-        )
+        val months = listOf("янв", "фев", "мар", "апр", "маи", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек")
         val index = months.indexOfFirst { clean.contains(it) }
         return if (index >= 0) index + 1 else null
     }
@@ -175,25 +172,12 @@ object ExcelImporter {
     private fun parseTimeToMinutes(timeStr: String): Int {
         if (timeStr.isBlank()) return 0
         val clean = timeStr.trim().lowercase()
-
         if (clean.contains(":")) {
             val parts = clean.split(":")
             val h = parts.getOrNull(0)?.toIntOrNull() ?: 0
             val m = parts.getOrNull(1)?.toIntOrNull() ?: 0
             return h * 60 + m
         }
-
-        val hoursRegex = Regex("""(\d+)\s*ч""")
-        val minsRegex = Regex("""(\d+)\s*мин""")
-        val hMatch = hoursRegex.find(clean)
-        val mMatch = minsRegex.find(clean)
-
-        if (hMatch != null || mMatch != null) {
-            val hours = hMatch?.groupValues?.get(1)?.toIntOrNull() ?: 0
-            val minutes = mMatch?.groupValues?.get(1)?.toIntOrNull() ?: 0
-            return hours * 60 + minutes
-        }
-
         val normalizedDouble = clean.replace(',', '.')
         val doubleHours = normalizedDouble.toDoubleOrNull() ?: 0.0
         return (doubleHours * 60).toInt()
@@ -206,14 +190,5 @@ object ExcelImporter {
         } catch (e: Exception) {
             System.currentTimeMillis()
         }
-    }
-
-    private fun getMonthIndex(sheetName: String): Int {
-        val months = listOf(
-            "январь", "февраль", "март", "апрель", "май", "июнь",
-            "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"
-        )
-        val index = months.indexOfFirst { sheetName.lowercase().contains(it) }
-        return if (index >= 0) index + 1 else 0
     }
 }
