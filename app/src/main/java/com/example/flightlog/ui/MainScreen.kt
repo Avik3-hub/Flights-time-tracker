@@ -662,13 +662,13 @@ fun StatisticsTabScreen(
             )
     }
 
-    val report: MonthlyReport = remember(filteredFlights, selectedDuty, activeTariff) {
-        CalculationEngine.calculateMonthlyReport(
-            filteredFlights,
-            selectedDuty,
-            activeTariff
-        )
-    }
+    val report: MonthlyReport = remember(filteredFlights, selectedDuty, tariffs) {
+    CalculationEngine.calculateReport(
+        flights = filteredFlights,
+        duties = listOfNotNull(selectedDuty),
+        tariffs = tariffs
+    )
+}
 
     LazyColumn(
         modifier = Modifier
