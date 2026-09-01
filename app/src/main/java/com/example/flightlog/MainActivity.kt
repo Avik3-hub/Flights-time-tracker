@@ -71,7 +71,11 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onSaveDuty = { duty ->
                                     lifecycleScope.launch {
-                                        db.dutyDao().saveDuty(duty)
+                                        if (duty.dutyDays <= 0) {
+                                            db.dutyDao().deleteDutyByPeriod(duty.year, duty.month)
+                                        } else {
+                                            db.dutyDao().saveDuty(duty)
+                                        }
                                     }
                                 },
                                 onSaveTariff = { tariff ->
