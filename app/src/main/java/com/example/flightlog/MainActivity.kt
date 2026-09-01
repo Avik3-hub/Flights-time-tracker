@@ -24,22 +24,16 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Инициализация синглтона базы данных
         val db = AppDatabase.getDatabase(this)
-        
-        // Доступ к SharedPreferences для сохранения настроек
         val prefs = getSharedPreferences("app_settings", Context.MODE_PRIVATE)
 
         setContent {
-            // Загрузка сохраненного значения темы (по умолчанию false)
             var isDarkTheme by remember { 
                 mutableStateOf(prefs.getBoolean("is_dark_theme", false)) 
             }
             
-            // Переключение между экранами
             var currentScreen by remember { mutableStateOf("main") }
 
-            // Подписка на Flow из базы данных
             val flights by db.flightDao().getAllFlights().collectAsState(initial = emptyList())
             val dutyRecords by db.dutyDao().getAllDuties().collectAsState(initial = emptyList())
             val tariffs by db.tariffDao().getAllTariffs().collectAsState(initial = emptyList())
@@ -58,7 +52,6 @@ class MainActivity : ComponentActivity() {
                                 onToggleTheme = {
                                     val newThemeState = !isDarkTheme
                                     isDarkTheme = newThemeState
-                                    // Сохраняем состояние темы в память устройства
                                     prefs.edit().putBoolean("is_dark_theme", newThemeState).apply()
                                 },
                                 onAddFlight = { flight ->
@@ -81,6 +74,11 @@ class MainActivity : ComponentActivity() {
                                         db.dutyDao().saveDuty(duty)
                                     }
                                 },
+                                onSaveTariff = { tariff ->
+                                    lifecycleScope.launch {
+                                        db.tariffDao().insertTariff(tariff)
+                                    }
+                                },
                                 onSettingsClick = {
                                     currentScreen = "settings"
                                 }
@@ -95,18 +93,18 @@ class MainActivity : ComponentActivity() {
                                 seaHourlyRate = 5964.0,
                                 dutyDayRate = 1952.0
                             )
-                        SettingsScreen(
-    currentTariff = currentTariff,
-    onSaveTariff = { updatedTariff ->
-        lifecycleScope.launch {
-            db.tariffDao().insertTariff(updatedTariff)
-            currentScreen = "main"
-        }
-    },
-    onBackClick = {
-        currentScreen = "main"
-    }
-)
+                            SettingsScreen(
+                                currentTariff = currentTariff,
+                                onSaveTariff = { updatedTariff ->
+                                    lifecycleScope.launch {
+                                        db.tariffDao().insertTariff(updatedTariff)
+                                        currentScreen = "main"
+                                    }
+                                },
+                                onBackClick = {
+                                    currentScreen = "main"
+                                }
+                            )
                         }
                     }
                 }
