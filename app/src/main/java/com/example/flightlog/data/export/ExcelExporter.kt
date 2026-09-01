@@ -5,9 +5,10 @@ import android.net.Uri
 import com.example.flightlog.data.db.DutyEntity
 import com.example.flightlog.data.db.FlightEntity
 import com.example.flightlog.data.db.TariffEntity
-import com.example.flightlog.ui.formatDate
-import com.example.flightlog.ui.minutesToHoursAndMinutes
-import org.dhatim.fastexcel.Workbook
+import org.apache.poi.xssf.usermodel.XSSFWorkbook
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 
 object ExcelExporter {
 
@@ -16,159 +17,91 @@ object ExcelExporter {
         uri: Uri,
         flights: List<FlightEntity>,
         duties: List<DutyEntity>,
-        activeTariff: TariffEntity,
+        activeTariff: TariffEntity?,
         allTariffs: List<TariffEntity> = emptyList()
     ): Boolean {
         return try {
-            context.contentResolver.openOutputStream(uri)?.use { outputStream ->
-                val workbook = Workbook(outputStream, "FlightLog", "1.0")
+            val workbook = XSSFWorkbook()
+            val dateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
+
+            // 1. Лист со списком полётов
+            val flightSheet = workbook.createSheet("Полёты")
+            val flightHeader = flightSheet.createRow(0)
+            flightHeader.createCell(0).setCellValue("Дата")
+            flightHeader.createCell(1).setCellValue("№ ВС")
+            flightHeader.createCell(2).setCellValue("Задание")
+            flightHeader.createCell(3).setCellValue("ФИО КВС")
+            flightHeader.createCell(4).setCellValue("Земля (ч:мм)")
+            flightHeader.createCell(5).setCellValue("Море (ч:мм)")
+
+            var rowIndex = 1
+            for (flight in flights.sortedBy { it.dateTimestamp }) {
+                val row = flightSheet.createRow(rowIndex++)
+                val dateStr = dateFormat.format(flight.dateTimestamp)
                 
-                // -------------------------------------------------------------
-                // Лист 1: Отчет по налету
-                // -------------------------------------------------------------
-                val sheet = workbook.newWorksheet("Отчет по налету")
-
-                sheet.width(0, 12.0) // 0: Дата
-                sheet.width(1, 10.0) // 1: № ВС
-                sheet.width(2, 12.0) // 2: Задание
-                sheet.width(3, 14.0) // 3: КВС
-                sheet.width(4, 15.0) // 4: Земля
-                sheet.width(5, 15.0) // 5: Море
-
-                val headers = listOf("Дата", "№ ВС", "Задание", "КВС", "Земля", "Море")
-                headers.forEachIndexed { col, title ->
-                    sheet.value(0, col, title)
-                    sheet.style(0, col).bold().fillColor("E0E0E0").horizontalAlignment("center").set()
-                }
-
-                var row = 1
-                flights.forEach { flight ->
-                    sheet.value(row, 0, formatDate(flight.dateTimestamp))
-                    sheet.value(row, 1, flight.aircraftNumber)
-                    sheet.value(row, 2, flight.missionNumber ?: "")
-                    sheet.value(row, 3, flight.captain)
-
-                    sheet.value(row, 4, flight.landTimeMinutes.minutesToHoursAndMinutes())
-                    sheet.style(row, 4).fillColor("C6D9F1").horizontalAlignment("center").set()
-
-                    sheet.value(row, 5, flight.seaTimeMinutes.minutesToHoursAndMinutes())
-                    sheet.style(row, 5).fillColor("C6D9F1").horizontalAlignment("center").set()
-
-                    row++
-                }
-
-                val totalLandMinutes = flights.sumOf { it.landTimeMinutes }
-                val totalSeaMinutes = flights.sumOf { it.seaTimeMinutes }
-
-                val landPayment = (totalLandMinutes / 60.0) * activeTariff.landHourlyRate * 0.87
-                val seaPayment = (totalSeaMinutes / 60.0) * activeTariff.seaHourlyRate * 0.87
-                val flightPayment = landPayment + seaPayment
-
-                val totalDutyDays = duties.sumOf { it.dutyDays }
-                val dutyPayment = totalDutyDays * activeTariff.dutyDayRate * 0.87
-
-                val grandTotalPayment = flightPayment + dutyPayment
-
-                row++
-
-                sheet.value(row, 4, "Сумма часов:")
-                sheet.range(row, 4, row, 5).merge()
-                sheet.style(row, 4).bold().horizontalAlignment("center").set()
-                row++
-
-                sheet.value(row, 4, totalLandMinutes.minutesToHoursAndMinutes())
-                sheet.style(row, 4).bold().fillColor("C6D9F1").horizontalAlignment("center").set()
-
-                sheet.value(row, 5, totalSeaMinutes.minutesToHoursAndMinutes())
-                sheet.style(row, 5).bold().fillColor("C6D9F1").horizontalAlignment("center").set()
-                row++
-
-                sheet.value(row, 4, "Сумма:")
-                sheet.range(row, 4, row, 5).merge()
-                sheet.style(row, 4).bold().horizontalAlignment("center").set()
-                row++
-
-                sheet.value(row, 4, "${String.format("%.2f", landPayment)} руб.")
-                sheet.style(row, 4).horizontalAlignment("center").set()
-
-                sheet.value(row, 5, "${String.format("%.2f", seaPayment)} руб.")
-                sheet.style(row, 5).horizontalAlignment("center").set()
-                row++
-
-                sheet.value(row, 4, "Дежурство ($totalDutyDays дн.):")
-                sheet.style(row, 4).bold().horizontalAlignment("right").set()
-
-                sheet.value(row, 5, "${String.format("%.2f", dutyPayment)} руб.")
-                sheet.style(row, 5).bold().fillColor("D9EAD3").horizontalAlignment("center").set()
-                row++
-
-                sheet.value(row, 4, "Общая сумма:")
-                sheet.range(row, 4, row, 5).merge()
-                sheet.style(row, 4).bold().horizontalAlignment("center").set()
-                row++
-
-                sheet.value(row, 4, "${String.format("%.2f", grandTotalPayment)} руб.")
-                sheet.range(row, 4, row, 5).merge()
-                sheet.style(row, 4).bold().fillColor("FCE4D6").horizontalAlignment("center").set()
-
-                // -------------------------------------------------------------
-                // Лист 2: Дежурства по месяцах
-                // -------------------------------------------------------------
-                if (duties.isNotEmpty()) {
-                    val dutySheet = workbook.newWorksheet("Дежурства")
-
-                    dutySheet.width(0, 12.0)
-                    dutySheet.width(1, 12.0)
-                    dutySheet.width(2, 20.0)
-
-                    val dutyHeaders = listOf("Год", "Месяц", "Дни дежурства")
-                    dutyHeaders.forEachIndexed { col, title ->
-                        dutySheet.value(0, col, title)
-                        dutySheet.style(0, col).bold().fillColor("E0E0E0").horizontalAlignment("center").set()
-                    }
-
-                    duties.forEachIndexed { index, d ->
-                        val dRow = index + 1
-                        dutySheet.value(dRow, 0, d.year)
-                        dutySheet.value(dRow, 1, d.month)
-                        dutySheet.value(dRow, 2, d.dutyDays)
-                    }
-                }
-
-                // -------------------------------------------------------------
-                // Лист 3: История Тарифов
-                // -------------------------------------------------------------
-                if (allTariffs.isNotEmpty()) {
-                    val tariffSheet = workbook.newWorksheet("Тарифы")
-
-                    tariffSheet.width(0, 12.0)
-                    tariffSheet.width(1, 12.0)
-                    tariffSheet.width(2, 18.0)
-                    tariffSheet.width(3, 18.0)
-                    tariffSheet.width(4, 20.0)
-
-                    val tariffHeaders = listOf("Год", "Месяц", "Земля (руб/ч)", "Море (руб/ч)", "Дежурство (руб/день)")
-                    tariffHeaders.forEachIndexed { col, title ->
-                        tariffSheet.value(0, col, title)
-                        tariffSheet.style(0, col).bold().fillColor("E0E0E0").horizontalAlignment("center").set()
-                    }
-
-                    allTariffs.forEachIndexed { index, t ->
-                        val tRow = index + 1
-                        tariffSheet.value(tRow, 0, t.effectiveFromYear)
-                        tariffSheet.value(tRow, 1, t.effectiveFromMonth)
-                        tariffSheet.value(tRow, 2, t.landHourlyRate)
-                        tariffSheet.value(tRow, 3, t.seaHourlyRate)
-                        tariffSheet.value(tRow, 4, t.dutyDayRate)
-                    }
-                }
-
-                workbook.finish()
+                row.createCell(0).setCellValue(dateStr)
+                row.createCell(1).setCellValue(flight.aircraftNumber)
+                row.createCell(2).setCellValue(flight.missionNumber ?: "")
+                row.createCell(3).setCellValue(flight.captain)
+                row.createCell(4).setCellValue(formatMinutesToHHMM(flight.landTimeMinutes))
+                row.createCell(5).setCellValue(formatMinutesToHHMM(flight.seaTimeMinutes))
             }
+
+            // 2. Отдельный лист "Дежурства" с разбивкой ПО МЕСЯЦАМ
+            val dutySheet = workbook.createSheet("Дежурства")
+            val dutyHeader = dutySheet.createRow(0)
+            dutyHeader.createCell(0).setCellValue("Год")
+            dutyHeader.createCell(1).setCellValue("Месяц")
+            dutyHeader.createCell(2).setCellValue("Дней дежурства")
+
+            var dutyRowIndex = 1
+            // Сортируем дежурства по году и месяцу
+            for (duty in duties.sortedWith(compareBy({ it.year }, { it.month }))) {
+                if (duty.dutyDays > 0) {
+                    val row = dutySheet.createRow(dutyRowIndex++)
+                    row.createCell(0).setCellValue(duty.year.toDouble())
+                    row.createCell(1).setCellValue(duty.month.toDouble()) // Числовой номер месяца (1-12)
+                    row.createCell(2).setCellValue(duty.dutyDays.toDouble())
+                }
+            }
+
+            // 3. Лист с тарифами (для точного восстановления расчетов)
+            val tariffList = if (allTariffs.isNotEmpty()) allTariffs else listOfNotNull(activeTariff)
+            if (tariffList.isNotEmpty()) {
+                val tariffSheet = workbook.createSheet("Тарифы")
+                val tariffHeader = tariffSheet.createRow(0)
+                tariffHeader.createCell(0).setCellValue("Год")
+                tariffHeader.createCell(1).setCellValue("Месяц")
+                tariffHeader.createCell(2).setCellValue("Ставка Земля")
+                tariffHeader.createCell(3).setCellValue("Ставка Море")
+                tariffHeader.createCell(4).setCellValue("Ставка Дежурство")
+
+                var tariffRowIndex = 1
+                for (t in tariffList) {
+                    val row = tariffSheet.createRow(tariffRowIndex++)
+                    row.createCell(0).setCellValue(t.effectiveFromYear.toDouble())
+                    row.createCell(1).setCellValue(t.effectiveFromMonth.toDouble())
+                    row.createCell(2).setCellValue(t.landHourlyRate)
+                    row.createCell(3).setCellValue(t.seaHourlyRate)
+                    row.createCell(4).setCellValue(t.dutyDayRate)
+                }
+            }
+
+            // Сохранение файла
+            context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+                workbook.write(outputStream)
+            }
+            workbook.close()
             true
         } catch (e: Exception) {
             e.printStackTrace()
             false
         }
+    }
+
+    private fun formatMinutesToHHMM(totalMinutes: Int): String {
+        val hours = totalMinutes / 60
+        val minutes = totalMinutes % 60
+        return String.format(Locale.getDefault(), "%02d:%02d", hours, minutes)
     }
 }
