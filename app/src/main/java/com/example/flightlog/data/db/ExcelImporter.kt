@@ -12,6 +12,7 @@ import org.apache.poi.ss.usermodel.Row
 import org.apache.poi.ss.usermodel.WorkbookFactory
 import java.text.SimpleDateFormat
 import java.util.Locale
+import java.util.TimeZone
 
 object ExcelImporter {
 
@@ -26,11 +27,12 @@ object ExcelImporter {
         val duties = mutableListOf<DutyEntity>()
         val tariffs = mutableListOf<TariffEntity>()
 
+        context.contentResolver.openOutputStream(uri)?.use { /* ... */ } // keep existing stream logic
+        
         context.contentResolver.openInputStream(uri)?.use { inputStream ->
             val workbook = WorkbookFactory.create(inputStream)
 
             // Лист 1 (индекс 0): Полеты
-                        // Лист 1 (индекс 0): Полеты
             if (workbook.numberOfSheets > 0) {
                 val sheet = workbook.getSheetAt(0)
                 val rowIterator = sheet.rowIterator()
@@ -39,19 +41,13 @@ object ExcelImporter {
                     while (rowIterator.hasNext()) {
                         val row = rowIterator.next()
                         try {
-                            // Колонка A (индекс 0) — Дата
                             val dateStr = getCellSafe(row, 0)
                             if (dateStr.isBlank()) continue
 
-                            // Колонка B (индекс 1) — ВС
                             val aircraftNum = getCellSafe(row, 1).ifBlank { "б/н" }
-                            // Колонка C (индекс 2) — Задание
                             val missionNum = getCellSafe(row, 2).ifBlank { null }
-                            // Колонка D (индекс 3) — КВС
                             val captain = getCellSafe(row, 3).ifBlank { "Не указан" }
 
-                            // Колонка E (индекс 4) — Земля
-                            // Колонка F (индекс 5) — Море
                             val landMinutes = parseCellToMinutes(row.getCell(4))
                             val seaMinutes = parseCellToMinutes(row.getCell(5))
 
@@ -74,17 +70,15 @@ object ExcelImporter {
                 }
             }
 
-
-                        // Лист 2 (индекс 1): Дежурства (фиксированные колонки: 0 - Год, 1 - Месяц, 2 - Дни)
+            // Лист 2 (индекс 1): Дежурства
             if (workbook.numberOfSheets > 1) {
                 val sheet = workbook.getSheetAt(1)
                 val rowIterator = sheet.rowIterator()
                 if (rowIterator.hasNext()) {
-                    rowIterator.next() // Пропускаем заголовок
+                    rowIterator.next()
                     while (rowIterator.hasNext()) {
                         val row = rowIterator.next()
                         try {
-                            // Колонка A (индекс 0) — Год
                             val yearCell = row.getCell(0) ?: continue
                             val year = when (yearCell.cellType) {
                                 CellType.NUMERIC -> yearCell.numericCellValue.toInt()
@@ -92,7 +86,6 @@ object ExcelImporter {
                                 else -> continue
                             }
 
-                            // Колонка B (индекс 1) — Месяц (поддерживает 0 и 1-12)
                             val monthCell = row.getCell(1)
                             val month = when (monthCell?.cellType) {
                                 CellType.NUMERIC -> monthCell.numericCellValue.toInt()
@@ -100,7 +93,6 @@ object ExcelImporter {
                                 else -> 0
                             }
 
-                            // Колонка C (индекс 2) — Дни дежурства
                             val daysCell = row.getCell(2)
                             val days = when (daysCell?.cellType) {
                                 CellType.NUMERIC -> daysCell.numericCellValue.toInt()
@@ -110,13 +102,7 @@ object ExcelImporter {
 
                             if (year > 0) {
                                 if (duties.none { it.year == year && it.month == month }) {
-                                    duties.add(
-                                        DutyEntity(
-                                            year = year,
-                                            month = month,
-                                            dutyDays = days
-                                        )
-                                    )
+                                    duties.add(DutyEntity(year = year, month = month, dutyDays = days))
                                 }
                             }
                         } catch (e: Exception) {
@@ -125,14 +111,13 @@ object ExcelImporter {
                     }
                 }
             }
-            
 
             // Лист 3 (индекс 2): Тарифы
             if (workbook.numberOfSheets > 2) {
                 val sheet = workbook.getSheetAt(2)
                 val rowIterator = sheet.rowIterator()
                 if (rowIterator.hasNext()) {
-                    rowIterator.next() // Пропускаем заголовок
+                    rowIterator.next()
                     while (rowIterator.hasNext()) {
                         val row = rowIterator.next()
                         val rowValues = (0 until row.lastCellNum).map { getCellSafe(row, it) }
@@ -195,15 +180,13 @@ object ExcelImporter {
             CellType.STRING -> cell.stringCellValue.trim()
             CellType.NUMERIC -> {
                 if (DateUtil.isCellDateFormatted(cell)) {
-                    val sdf = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
+                    val sdf = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).apply {
+                        timeZone = TimeZone.getTimeZone("UTC")
+                    }
                     sdf.format(cell.dateCellValue)
                 } else {
                     val numeric = cell.numericCellValue
-                    if (numeric == numeric.toLong().toDouble()) {
-                        numeric.toLong().toString()
-                    } else {
-                        numeric.toString()
-                    }
+                    if (numeric == numeric.toLong().toDouble()) numeric.toLong().toString() else numeric.toString()
                 }
             }
             CellType.BOOLEAN -> cell.booleanCellValue.toString()
@@ -224,24 +207,14 @@ object ExcelImporter {
         return when (cell.cellType) {
             CellType.NUMERIC -> {
                 val numeric = cell.numericCellValue
-                if (DateUtil.isCellDateFormatted(cell)) {
-                    (numeric * 24.0 * 60.0).toInt()
-                } else {
-                    (numeric * 60.0).toInt()
-                }
+                if (DateUtil.isCellDateFormatted(cell)) (numeric * 24.0 * 60.0).toInt() else (numeric * 60.0).toInt()
             }
             CellType.STRING -> parseTimeToMinutes(cell.stringCellValue)
             CellType.FORMULA -> {
                 runCatching {
                     val numeric = cell.numericCellValue
-                    if (DateUtil.isCellDateFormatted(cell)) {
-                        (numeric * 24.0 * 60.0).toInt()
-                    } else {
-                        (numeric * 60.0).toInt()
-                    }
-                }.getOrElse {
-                    parseTimeToMinutes(cell.stringCellValue)
-                }
+                    if (DateUtil.isCellDateFormatted(cell)) (numeric * 24.0 * 60.0).toInt() else (numeric * 60.0).toInt()
+                }.getOrElse { parseTimeToMinutes(cell.stringCellValue) }
             }
             else -> 0
         }
@@ -266,9 +239,7 @@ object ExcelImporter {
     private fun parseMonth(monthStr: String): Int? {
         if (monthStr.isBlank()) return null
         val clean = monthStr.trim().lowercase()
-        parseCleanDouble(clean)?.toInt()?.let {
-            if (it in 1..12) return it
-        }
+        parseCleanDouble(clean)?.toInt()?.let { if (it in 1..12) return it }
         val months = listOf("янв", "фев", "мар", "апр", "маи", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек")
         val index = months.indexOfFirst { clean.contains(it) }
         return if (index >= 0) index + 1 else null
@@ -276,7 +247,9 @@ object ExcelImporter {
 
     private fun parseDateToTimestamp(dateStr: String): Long {
         return try {
-            val format = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
+            val format = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).apply {
+                timeZone = TimeZone.getTimeZone("UTC")
+            }
             format.parse(dateStr)?.time ?: System.currentTimeMillis()
         } catch (e: Exception) {
             System.currentTimeMillis()
