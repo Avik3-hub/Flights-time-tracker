@@ -10,6 +10,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
+import java.util.TimeZone
 
 object ExcelExporter {
 
@@ -23,12 +24,18 @@ object ExcelExporter {
     ): Boolean {
         return try {
             val workbook = XSSFWorkbook()
-            val dateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
+            
+            // Фиксируем UTC, чтобы даты при экспорте/импорте не смещались
+            val utcTz = TimeZone.getTimeZone("UTC")
+            val dateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).apply {
+                timeZone = utcTz
+            }
+            
             val tariffList = if (allTariffs.isNotEmpty()) allTariffs else listOfNotNull(activeTariff)
             val sortedFlights = flights.sortedBy { it.dateTimestamp }
 
-            // Фильтрация дежурств под период выгружаемых полетов
-            val calendar = Calendar.getInstance()
+            // Фильтрация дежурств под период выгружаемых полетов с учетом UTC
+            val calendar = Calendar.getInstance(utcTz)
             val flightMonths = sortedFlights.map { flight ->
                 calendar.timeInMillis = flight.dateTimestamp
                 Pair(calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH) + 1)
