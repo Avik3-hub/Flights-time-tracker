@@ -96,7 +96,7 @@ fun SettingsScreen(
             )
 
             Text(
-                text = "Примечание: все расчеты выполняются с автовычетом 13% НДФЛ.",
+                text = "Примечание: Тарифы устанавливаются без вычета НДФЛ, но все расчеты выполняются с автовычетом 13% НДФЛ.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
