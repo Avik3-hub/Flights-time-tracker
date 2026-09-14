@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -63,7 +64,6 @@ fun MainScreen(
             ""
         }
     }
-
     val pagerState = rememberPagerState(pageCount = { 2 })
     val coroutineScope = rememberCoroutineScope()
     var flightToEdit by remember { mutableStateOf<FlightEntity?>(null) }
@@ -184,7 +184,6 @@ fun MainScreen(
     }
 }
 
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InputTabScreen(
@@ -227,6 +226,7 @@ fun InputTabScreen(
     val currentCal = remember { Calendar.getInstance() }
     var dutyYear by remember { mutableIntStateOf(currentCal.get(Calendar.YEAR)) }
     var dutyMonth by remember { mutableIntStateOf(currentCal.get(Calendar.MONTH) + 1) }
+
     val existingDuty = remember(dutyRecords, dutyYear, dutyMonth) {
         dutyRecords.find { it.year == dutyYear && it.month == dutyMonth }
     }
@@ -262,20 +262,26 @@ fun InputTabScreen(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
-                    OutlinedTextField(
-                        value = formatDate(selectedDateMillis),
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Дата полета") },
-                        trailingIcon = {
-                            IconButton(onClick = { showDatePicker = true }) {
+
+                    // Поле: Дата полета (кликабельно целиком)
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = formatDate(selectedDateMillis),
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Дата полета") },
+                            trailingIcon = {
                                 Icon(Icons.Default.DateRange, contentDescription = "Выбрать дату")
-                            }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { showDatePicker = true }
-                    )
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .clickable { showDatePicker = true }
+                        )
+                    }
+
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -321,6 +327,7 @@ fun InputTabScreen(
                             singleLine = true
                         )
                     }
+
                     ExposedDropdownMenuBox(
                         expanded = captainExpanded && filteredCaptains.isNotEmpty(),
                         onExpandedChange = { captainExpanded = !captainExpanded }
@@ -352,39 +359,49 @@ fun InputTabScreen(
                             }
                         }
                     }
+
+                    // Поля времени Земля и Море (кликабельны целиком + иконка часов)
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        OutlinedTextField(
-                            value = String.format("%02d:%02d", landHours, landMinutes),
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Земля (ЧЧ:ММ)") },
-                            trailingIcon = {
-                                IconButton(onClick = { showLandTimePicker = true }) {
-                                    Icon(Icons.Default.DateRange, contentDescription = "Выбрать время")
-                                }
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable { showLandTimePicker = true }
-                        )
-                        OutlinedTextField(
-                            value = String.format("%02d:%02d", seaHours, seaMinutes),
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Море (ЧЧ:ММ)") },
-                            trailingIcon = {
-                                IconButton(onClick = { showSeaTimePicker = true }) {
-                                    Icon(Icons.Default.DateRange, contentDescription = "Выбрать время")
-                                }
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable { showSeaTimePicker = true }
-                        )
+                        Box(modifier = Modifier.weight(1f)) {
+                            OutlinedTextField(
+                                value = String.format("%02d:%02d", landHours, landMinutes),
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Земля (ЧЧ:ММ)") },
+                                trailingIcon = {
+                                    Icon(Icons.Default.Schedule, contentDescription = "Выбрать время")
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .clickable { showLandTimePicker = true }
+                            )
+                        }
+
+                        Box(modifier = Modifier.weight(1f)) {
+                            OutlinedTextField(
+                                value = String.format("%02d:%02d", seaHours, seaMinutes),
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Море (ЧЧ:ММ)") },
+                                trailingIcon = {
+                                    Icon(Icons.Default.Schedule, contentDescription = "Выбрать время")
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .clickable { showSeaTimePicker = true }
+                            )
+                        }
                     }
+
                     Button(
                         onClick = {
                             if (aircraftNumber.isNotBlank()) {
@@ -632,8 +649,8 @@ fun StatisticsTabScreen(
     var endDay by remember { mutableStateOf<Int?>(null) }
     var startDropdownExpanded by remember { mutableStateOf(false) }
     var endDropdownExpanded by remember { mutableStateOf(false) }
-
     val daysOptions = remember { listOf(null) + (1..31).toList() }
+
     val yearsList = remember(flights, dutyRecords) {
         val flightYears = flights.map {
             Calendar.getInstance().apply { timeInMillis = it.dateTimestamp }.get(Calendar.YEAR)
@@ -685,12 +702,12 @@ fun StatisticsTabScreen(
     }
 
     val report: MonthlyReport = remember(filteredFlights, selectedDuty, tariffs) {
-    CalculationEngine.calculateReport(
-        flights = filteredFlights,
-        duties = listOfNotNull(selectedDuty),
-        tariffs = tariffs
-    )
-}
+        CalculationEngine.calculateReport(
+            flights = filteredFlights,
+            duties = listOfNotNull(selectedDuty),
+            tariffs = tariffs
+        )
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -833,17 +850,17 @@ fun StatisticsTabScreen(
         }
         item {
             SummaryCard(
-    report = report,
-    dutyDays = selectedDuty.dutyDays,
-    monthlyFlights = filteredFlights,
-    monthlyDuty = selectedDuty,
-    currentTariff = activeTariff,
-    allTariffs = tariffs,
-    allDuties = dutyRecords,
-    selectedYear = selectedYear,
-    selectedMonth = selectedMonth,
-    onImportSuccess = onImportSuccess
-)
+                report = report,
+                dutyDays = selectedDuty.dutyDays,
+                monthlyFlights = filteredFlights,
+                monthlyDuty = selectedDuty,
+                currentTariff = activeTariff,
+                allTariffs = tariffs,
+                allDuties = dutyRecords,
+                selectedYear = selectedYear,
+                selectedMonth = selectedMonth,
+                onImportSuccess = onImportSuccess
+            )
         }
         item {
             Text(
@@ -870,7 +887,7 @@ fun SummaryCard(
     monthlyDuty: DutyEntity?,
     currentTariff: TariffEntity,
     allTariffs: List<TariffEntity>,
-    allDuties: List<DutyEntity>, // <--- Добавляем параметр сюда
+    allDuties: List<DutyEntity>,
     selectedYear: Int,
     selectedMonth: Int,
     onImportSuccess: (List<FlightEntity>, List<DutyEntity>, List<TariffEntity>) -> Unit = { _, _, _ -> }
@@ -884,13 +901,13 @@ fun SummaryCard(
     ) { uri ->
         uri?.let {
             val success = ExcelExporter.exportToExcel(
-    context = context,
-    uri = it,
-    flights = monthlyFlights,
-    duties = allDuties, // Передаем весь список дежурств из базы
-    activeTariff = currentTariff,
-    allTariffs = allTariffs
-)
+                context = context,
+                uri = it,
+                flights = monthlyFlights,
+                duties = allDuties,
+                activeTariff = currentTariff,
+                allTariffs = allTariffs
+            )
             if (success) {
                 Toast.makeText(context, "Отчет сохранен в Excel!", Toast.LENGTH_LONG).show()
             } else {
@@ -1153,60 +1170,81 @@ fun EditFlightDialog(
         title = { Text("Редактирование полета") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = formatDate(dateMillis),
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Дата") },
-                    trailingIcon = {
-                        IconButton(onClick = { showDatePicker = true }) {
-                            Icon(Icons.Default.DateRange, contentDescription = null)
-                        }
-                    },
-                    modifier = Modifier.clickable { showDatePicker = true }
-                )
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = formatDate(dateMillis),
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Дата") },
+                        trailingIcon = {
+                            Icon(Icons.Default.DateRange, contentDescription = "Выбрать дату")
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clickable { showDatePicker = true }
+                    )
+                }
+
                 OutlinedTextField(
                     value = aircraftNumber,
                     onValueChange = { aircraftNumber = it },
                     label = { Text("№ ВС") },
-                    singleLine = true
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = missionNumber,
                     onValueChange = { missionNumber = it },
                     label = { Text("Задание") },
-                    singleLine = true
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = captain,
                     onValueChange = { captain = it },
                     label = { Text("ФИО КВС") },
-                    singleLine = true
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
-                    value = String.format("%02d:%02d", landHours, landMinutes),
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Земля") },
-                    trailingIcon = {
-                        IconButton(onClick = { showLandTimePicker = true }) {
-                            Icon(Icons.Default.DateRange, contentDescription = null)
-                        }
-                    },
-                    modifier = Modifier.clickable { showLandTimePicker = true }
-                )
-                OutlinedTextField(
-                    value = String.format("%02d:%02d", seaHours, seaMinutes),
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Море") },
-                    trailingIcon = {
-                        IconButton(onClick = { showSeaTimePicker = true }) {
-                            Icon(Icons.Default.DateRange, contentDescription = null)
-                        }
-                    },
-                    modifier = Modifier.clickable { showSeaTimePicker = true }
-                )
+
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = String.format("%02d:%02d", landHours, landMinutes),
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Земля") },
+                        trailingIcon = {
+                            Icon(Icons.Default.Schedule, contentDescription = "Выбрать время")
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clickable { showLandTimePicker = true }
+                    )
+                }
+
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = String.format("%02d:%02d", seaHours, seaMinutes),
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Море") },
+                        trailingIcon = {
+                            Icon(Icons.Default.Schedule, contentDescription = "Выбрать время")
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clickable { showSeaTimePicker = true }
+                    )
+                }
             }
         },
         confirmButton = {
