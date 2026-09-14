@@ -12,8 +12,8 @@ android {
         applicationId = "com.example.flightlog"
         minSdk = 26
         targetSdk = 34
-        versionCode = 22
-        versionName = "1.1.7"
+        versionCode = 23
+        versionName = "1.1.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
