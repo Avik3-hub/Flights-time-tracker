@@ -205,6 +205,9 @@ fun InputTabScreen(
     var seaMinutes by remember { mutableIntStateOf(0) }
     var showSeaTimePicker by remember { mutableStateOf(false) }
 
+    // Состояние для отображения диалога успешного сохранения
+    var showSaveSuccessDialog by remember { mutableStateOf(false) }
+
     val aircraftOptions = remember(flights) {
         flights.map { it.aircraftNumber }.filter { it.isNotBlank() }.distinct()
     }
@@ -422,6 +425,9 @@ fun InputTabScreen(
                                 landMinutes = 0
                                 seaHours = 0
                                 seaMinutes = 0
+
+                                // Включаем отображение диалога при успехе
+                                showSaveSuccessDialog = true
                             }
                         },
                         modifier = Modifier.fillMaxWidth()
@@ -594,6 +600,26 @@ fun InputTabScreen(
                 seaHours = h
                 seaMinutes = m
                 showSeaTimePicker = false
+            }
+        )
+    }
+
+    // Всплывающее окно подтверждения сохранения полета
+    if (showSaveSuccessDialog) {
+        AlertDialog(
+            onDismissRequest = { showSaveSuccessDialog = false },
+            text = {
+                Text(
+                    text = "Полет добавлен.",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { showSaveSuccessDialog = false }
+                ) {
+                    Text("Ок")
+                }
             }
         )
     }
