@@ -1,24 +1,32 @@
 package com.example.flightlog.ui
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.Palette
+import com.example.flightlog.ui.theme.AppTheme
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -40,14 +48,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
     flights: List<FlightEntity>,
     dutyRecords: List<DutyEntity>,
     tariffs: List<TariffEntity>,
-    isDarkTheme: Boolean,
-    onToggleTheme: () -> Unit,
+    selectedTheme: AppTheme,
+    onSelectTheme: (AppTheme) -> Unit,
     onAddFlight: (FlightEntity) -> Unit,
     onUpdateFlight: (FlightEntity) -> Unit,
     onDeleteFlight: (Long) -> Unit,
@@ -57,128 +65,165 @@ fun MainScreen(
 ) {
     val context = LocalContext.current
     val versionName = remember {
-        try {
-            val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-            packageInfo.versionName ?: ""
-        } catch (e: Exception) {
-            ""
-        }
+        try { context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "" }
+        catch (_: Exception) { "" }
     }
-    val pagerState = rememberPagerState(pageCount = { 2 })
-    val coroutineScope = rememberCoroutineScope()
+    var page by rememberSaveable { mutableIntStateOf(0) }
+    val stateHolder = rememberSaveableStateHolder()
+    val now = remember { Calendar.getInstance() }
+    var overviewYear by rememberSaveable { mutableIntStateOf(now.get(Calendar.YEAR)) }
+    var overviewMonth by rememberSaveable { mutableIntStateOf(now.get(Calendar.MONTH) + 1) }
     var flightToEdit by remember { mutableStateOf<FlightEntity?>(null) }
-    var menuExpanded by remember { mutableStateOf(false) }
+    var flightToDelete by remember { mutableStateOf<FlightEntity?>(null) }
+    var showThemes by rememberSaveable { mutableStateOf(false) }
+    BackHandler(enabled = page != 0) { page = 0 }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = {
                     Column {
-                        Text("Счетчик налета")
-                        if (versionName.isNotBlank()) {
-                            Text(
-                                text = "v. $versionName",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                            )
+                        Text(
+                            if (page == 2) "Новый полёт" else "Счётчик налёта",
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                        Text(
+                            "v. $versionName · ${selectedTheme.title}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
+                navigationIcon = {
+                    if (page == 2) {
+                        IconButton(onClick = { page = 0 }) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Назад к обзору")
                         }
                     }
                 },
                 actions = {
-                    Box {
-                        IconButton(onClick = { menuExpanded = true }) {
-                            Icon(
-                                imageVector = Icons.Default.Settings,
-                                contentDescription = "Настройки"
-                            )
-                        }
-                        DropdownMenu(
-                            expanded = menuExpanded,
-                            onDismissRequest = { menuExpanded = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Тарифы") },
-                                onClick = {
-                                    menuExpanded = false
-                                    onSettingsClick()
-                                }
-                            )
-                            HorizontalDivider()
-                            DropdownMenuItem(
-                                text = { 
-                                    Text(if (isDarkTheme) "Светлая тема" else "Темная тема") 
-                                },
-                                onClick = {
-                                    menuExpanded = false
-                                    onToggleTheme()
-                                }
-                            )
-                        }
+                    IconButton(onClick = { showThemes = true }) {
+                        Icon(Icons.Default.Palette, contentDescription = "Выбрать тему")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    containerColor = MaterialTheme.colorScheme.background
                 )
             )
-        }
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-        ) {
-            TabRow(selectedTabIndex = pagerState.currentPage) {
-                Tab(
-                    selected = pagerState.currentPage == 0,
-                    onClick = {
-                        coroutineScope.launch { pagerState.animateScrollToPage(0) }
-                    },
-                    text = { Text("Ввод полета", fontWeight = FontWeight.Bold) }
-                )
-                Tab(
-                    selected = pagerState.currentPage == 1,
-                    onClick = {
-                        coroutineScope.launch { pagerState.animateScrollToPage(1) }
-                    },
-                    text = { Text("Статистика и история", fontWeight = FontWeight.Bold) }
-                )
-            }
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier.fillMaxSize()
-            ) { page ->
-                when (page) {
-                    0 -> InputTabScreen(
-                        flights = flights,
-                        dutyRecords = dutyRecords,
-                        onAddFlight = onAddFlight,
-                        onSaveDuty = onSaveDuty
-                    )
-                    1 -> StatisticsTabScreen(
-                        flights = flights,
-                        dutyRecords = dutyRecords,
-                        tariffs = tariffs,
-                        onEditFlight = { flightToEdit = it },
-                        onDeleteFlight = onDeleteFlight,
-                        onImportSuccess = { importedFlights, importedDuties, importedTariffs ->
-                            importedFlights.forEach { onAddFlight(it) }
-                            importedDuties.forEach { onSaveDuty(it) }
-                            importedTariffs.forEach { onSaveTariff(it) }
-                        }
+        },
+        bottomBar = {
+            NavigationBar(
+                containerColor = MaterialTheme.colorScheme.background,
+                tonalElevation = 0.dp
+            ) {
+                listOf(0 to "Обзор", 1 to "Журнал", 3 to "Ещё").forEach { (index, title) ->
+                    NavigationBarItem(
+                        selected = page == index,
+                        onClick = { page = index },
+                        icon = {
+                            Icon(
+                                when (index) {
+                                    0 -> Icons.Default.Home
+                                    1 -> Icons.Default.List
+                                    else -> Icons.Default.MoreHoriz
+                                },
+                                contentDescription = null
+                            )
+                        },
+                        label = { Text(title) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     )
                 }
             }
         }
+    ) { innerPadding ->
+        Column(Modifier.fillMaxSize().padding(innerPadding)) {
+            // Fixed action does not cover the last journal row on small screens.
+            if (page == 0 || page == 1) {
+                OutlinedButton(
+                    onClick = { page = 2 },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Полёт", fontWeight = FontWeight.SemiBold)
+                }
+            }
+            Box(Modifier.weight(1f)) {
+                stateHolder.SaveableStateProvider(page) {
+                    when (page) {
+                        0 -> OverviewScreen(
+                            flights = flights, dutyRecords = dutyRecords, tariffs = tariffs,
+                            year = overviewYear, month = overviewMonth,
+                            onPeriodChange = { year, month -> overviewYear = year; overviewMonth = month },
+                            onOpenJournal = {
+                                stateHolder.removeState(1)
+                                page = 1
+                            },
+                            onEditFlight = { flightToEdit = it },
+                            onAddFlight = { page = 2 }
+                        )
+                        1 -> StatisticsTabScreen(
+                            flights = flights, dutyRecords = dutyRecords, tariffs = tariffs,
+                            initialYear = overviewYear, initialMonth = overviewMonth,
+                            onEditFlight = { flightToEdit = it },
+                            onDeleteFlight = { id -> flightToDelete = flights.find { it.id == id } },
+                            onImportSuccess = { importedFlights, importedDuties, importedTariffs ->
+                                importedFlights.forEach { onAddFlight(it) }
+                                importedDuties.forEach { onSaveDuty(it) }
+                                importedTariffs.forEach { onSaveTariff(it) }
+                            }
+                        )
+                        2 -> InputTabScreen(
+                            flights = flights, dutyRecords = dutyRecords,
+                            onAddFlight = onAddFlight, onSaveDuty = onSaveDuty
+                        )
+                        3 -> MoreScreen(
+                            selectedTheme = selectedTheme,
+                            onThemeClick = { showThemes = true },
+                            onTariffsClick = onSettingsClick,
+                            onDutyClick = { page = 2 },
+                            onJournalClick = { page = 1 }
+                        )
+                    }
+                }
+            }
+        }
     }
-
+    if (showThemes) {
+        ThemePickerDialog(
+            selected = selectedTheme,
+            onSelect = { onSelectTheme(it); showThemes = false },
+            onDismiss = { showThemes = false }
+        )
+    }
     flightToEdit?.let { flight ->
         EditFlightDialog(
             flight = flight,
             onDismiss = { flightToEdit = null },
-            onSave = { updatedFlight ->
-                onUpdateFlight(updatedFlight)
-                flightToEdit = null
+            onSave = { onUpdateFlight(it); flightToEdit = null }
+        )
+    }
+    flightToDelete?.let { flight ->
+        AlertDialog(
+            onDismissRequest = { flightToDelete = null },
+            title = { Text("Удалить полёт?") },
+            text = { Text("${formatDate(flight.dateTimestamp)} · ${flight.aircraftNumber}") },
+            confirmButton = {
+                TextButton(onClick = { onDeleteFlight(flight.id); flightToDelete = null }) {
+                    Text("Удалить", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { flightToDelete = null }) { Text("Отмена") }
             }
         )
     }
@@ -193,25 +238,25 @@ fun InputTabScreen(
     onSaveDuty: (DutyEntity) -> Unit
 ) {
     val context = LocalContext.current
-    var selectedDateMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    var showDatePicker by remember { mutableStateOf(false) }
-    var aircraftNumber by remember { mutableStateOf("") }
-    var captain by remember { mutableStateOf("") }
-    var missionNumber by remember { mutableStateOf("") }
-    var landHours by remember { mutableIntStateOf(0) }
-    var landMinutes by remember { mutableIntStateOf(0) }
-    var showLandTimePicker by remember { mutableStateOf(false) }
-    var seaHours by remember { mutableIntStateOf(0) }
-    var seaMinutes by remember { mutableIntStateOf(0) }
-    var showSeaTimePicker by remember { mutableStateOf(false) }
+    var selectedDateMillis by rememberSaveable { mutableLongStateOf(System.currentTimeMillis()) }
+    var showDatePicker by rememberSaveable { mutableStateOf(false) }
+    var aircraftNumber by rememberSaveable { mutableStateOf("") }
+    var captain by rememberSaveable { mutableStateOf("") }
+    var missionNumber by rememberSaveable { mutableStateOf("") }
+    var landHours by rememberSaveable { mutableIntStateOf(0) }
+    var landMinutes by rememberSaveable { mutableIntStateOf(0) }
+    var showLandTimePicker by rememberSaveable { mutableStateOf(false) }
+    var seaHours by rememberSaveable { mutableIntStateOf(0) }
+    var seaMinutes by rememberSaveable { mutableIntStateOf(0) }
+    var showSeaTimePicker by rememberSaveable { mutableStateOf(false) }
 
     // Состояние для отображения диалога успешного сохранения
-    var showSaveSuccessDialog by remember { mutableStateOf(false) }
+    var showSaveSuccessDialog by rememberSaveable { mutableStateOf(false) }
 
     val aircraftOptions = remember(flights) {
         flights.map { it.aircraftNumber }.filter { it.isNotBlank() }.distinct()
     }
-    var aircraftExpanded by remember { mutableStateOf(false) }
+    var aircraftExpanded by rememberSaveable { mutableStateOf(false) }
     val filteredAircrafts = remember(aircraftNumber, aircraftOptions) {
         if (aircraftNumber.isBlank()) aircraftOptions
         else aircraftOptions.filter { it.contains(aircraftNumber, ignoreCase = true) }
@@ -220,20 +265,20 @@ fun InputTabScreen(
     val captainOptions = remember(flights) {
         flights.map { it.captain }.filter { it.isNotBlank() }.distinct()
     }
-    var captainExpanded by remember { mutableStateOf(false) }
+    var captainExpanded by rememberSaveable { mutableStateOf(false) }
     val filteredCaptains = remember(captain, captainOptions) {
         if (captain.isBlank()) captainOptions
         else captainOptions.filter { it.contains(captain, ignoreCase = true) }
     }
 
     val currentCal = remember { Calendar.getInstance() }
-    var dutyYear by remember { mutableIntStateOf(currentCal.get(Calendar.YEAR)) }
-    var dutyMonth by remember { mutableIntStateOf(currentCal.get(Calendar.MONTH) + 1) }
+    var dutyYear by rememberSaveable { mutableIntStateOf(currentCal.get(Calendar.YEAR)) }
+    var dutyMonth by rememberSaveable { mutableIntStateOf(currentCal.get(Calendar.MONTH) + 1) }
 
     val existingDuty = remember(dutyRecords, dutyYear, dutyMonth) {
         dutyRecords.find { it.year == dutyYear && it.month == dutyMonth }
     }
-    var dutyDaysInput by remember(existingDuty, dutyYear, dutyMonth) {
+    var dutyDaysInput by rememberSaveable(existingDuty, dutyYear, dutyMonth) {
         mutableStateOf(existingDuty?.dutyDays?.toString() ?: "")
     }
 
@@ -459,7 +504,7 @@ fun InputTabScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        var yearExpanded by remember { mutableStateOf(false) }
+                        var yearExpanded by rememberSaveable { mutableStateOf(false) }
                         ExposedDropdownMenuBox(
                             expanded = yearExpanded,
                             onExpandedChange = { yearExpanded = !yearExpanded },
@@ -488,7 +533,7 @@ fun InputTabScreen(
                                 }
                             }
                         }
-                        var monthExpanded by remember { mutableStateOf(false) }
+                        var monthExpanded by rememberSaveable { mutableStateOf(false) }
                         ExposedDropdownMenuBox(
                             expanded = monthExpanded,
                             onExpandedChange = { monthExpanded = !monthExpanded },
@@ -664,17 +709,18 @@ fun StatisticsTabScreen(
     flights: List<FlightEntity>,
     dutyRecords: List<DutyEntity>,
     tariffs: List<TariffEntity>,
+    initialYear: Int,
+    initialMonth: Int,
     onEditFlight: (FlightEntity) -> Unit,
     onDeleteFlight: (Long) -> Unit,
     onImportSuccess: (List<FlightEntity>, List<DutyEntity>, List<TariffEntity>) -> Unit = { _, _, _ -> }
 ) {
-    val currentCalendar = remember { Calendar.getInstance() }
-    var selectedYear by remember { mutableIntStateOf(currentCalendar.get(Calendar.YEAR)) }
-    var selectedMonth by remember { mutableIntStateOf(currentCalendar.get(Calendar.MONTH) + 1) }
-    var startDay by remember { mutableStateOf<Int?>(null) }
-    var endDay by remember { mutableStateOf<Int?>(null) }
-    var startDropdownExpanded by remember { mutableStateOf(false) }
-    var endDropdownExpanded by remember { mutableStateOf(false) }
+    var selectedYear by rememberSaveable { mutableIntStateOf(initialYear) }
+    var selectedMonth by rememberSaveable { mutableIntStateOf(initialMonth) }
+    var startDay by rememberSaveable { mutableStateOf<Int?>(null) }
+    var endDay by rememberSaveable { mutableStateOf<Int?>(null) }
+    var startDropdownExpanded by rememberSaveable { mutableStateOf(false) }
+    var endDropdownExpanded by rememberSaveable { mutableStateOf(false) }
     val daysOptions = remember { listOf(null) + (1..31).toList() }
 
     val yearsList = remember(flights, dutyRecords) {
@@ -750,7 +796,7 @@ fun StatisticsTabScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        var yearExpanded by remember { mutableStateOf(false) }
+                        var yearExpanded by rememberSaveable { mutableStateOf(false) }
                         ExposedDropdownMenuBox(
                             expanded = yearExpanded,
                             onExpandedChange = { yearExpanded = !yearExpanded },
@@ -779,7 +825,7 @@ fun StatisticsTabScreen(
                                 }
                             }
                         }
-                        var monthExpanded by remember { mutableStateOf(false) }
+                        var monthExpanded by rememberSaveable { mutableStateOf(false) }
                         ExposedDropdownMenuBox(
                             expanded = monthExpanded,
                             onExpandedChange = { monthExpanded = !monthExpanded },
@@ -895,7 +941,7 @@ fun StatisticsTabScreen(
                 fontWeight = FontWeight.Bold
             )
         }
-        items(filteredFlights) { flight ->
+        items(filteredFlights, key = { it.id }) { flight ->
             FlightRowItem(
                 flight = flight,
                 onEdit = { onEditFlight(flight) },
@@ -920,7 +966,7 @@ fun SummaryCard(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    var showImportConfirmation by remember { mutableStateOf(false) }
+    var showImportConfirmation by rememberSaveable { mutableStateOf(false) }
 
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
@@ -1128,31 +1174,21 @@ fun FlightRowItem(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            Text(dateStr, style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "$dateStr | № ВС: ${flight.aircraftNumber} ${flight.missionNumber?.let { "($it)" } ?: ""}",
-                    fontWeight = FontWeight.Bold
+                    text = "№ ВС: ${flight.aircraftNumber}",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f)
                 )
-                Text(
-                    text = "КВС: ${flight.captain.ifBlank { "Не указан" }}",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Text(
-                    text = "Земля: ${flight.landTimeMinutes.minutesToHoursAndMinutes()} | Море: ${flight.seaTimeMinutes.minutesToHoursAndMinutes()}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-            Row {
                 IconButton(onClick = onEdit) {
                     Icon(
                         imageVector = Icons.Default.Edit,
@@ -1168,6 +1204,23 @@ fun FlightRowItem(
                     )
                 }
             }
+            flight.missionNumber?.takeIf { it.isNotBlank() }?.let {
+                Text("Задание: $it", style = MaterialTheme.typography.bodyMedium)
+            }
+            Text("КВС: ${flight.captain.ifBlank { "Не указан" }}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                (flight.landTimeMinutes + flight.seaTimeMinutes).minutesToHoursAndMinutes(),
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                "Земля: ${flight.landTimeMinutes.minutesToHoursAndMinutes()}\n" +
+                    "Море: ${flight.seaTimeMinutes.minutesToHoursAndMinutes()}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -1179,23 +1232,26 @@ fun EditFlightDialog(
     onDismiss: () -> Unit,
     onSave: (FlightEntity) -> Unit
 ) {
-    var dateMillis by remember { mutableLongStateOf(flight.dateTimestamp) }
-    var showDatePicker by remember { mutableStateOf(false) }
-    var aircraftNumber by remember { mutableStateOf(flight.aircraftNumber) }
-    var captain by remember { mutableStateOf(flight.captain) }
-    var missionNumber by remember { mutableStateOf(flight.missionNumber ?: "") }
-    var landHours by remember { mutableIntStateOf(flight.landTimeMinutes / 60) }
-    var landMinutes by remember { mutableIntStateOf(flight.landTimeMinutes % 60) }
-    var showLandTimePicker by remember { mutableStateOf(false) }
-    var seaHours by remember { mutableIntStateOf(flight.seaTimeMinutes / 60) }
-    var seaMinutes by remember { mutableIntStateOf(flight.seaTimeMinutes % 60) }
-    var showSeaTimePicker by remember { mutableStateOf(false) }
+    var dateMillis by rememberSaveable { mutableLongStateOf(flight.dateTimestamp) }
+    var showDatePicker by rememberSaveable { mutableStateOf(false) }
+    var aircraftNumber by rememberSaveable { mutableStateOf(flight.aircraftNumber) }
+    var captain by rememberSaveable { mutableStateOf(flight.captain) }
+    var missionNumber by rememberSaveable { mutableStateOf(flight.missionNumber ?: "") }
+    var landHours by rememberSaveable { mutableIntStateOf(flight.landTimeMinutes / 60) }
+    var landMinutes by rememberSaveable { mutableIntStateOf(flight.landTimeMinutes % 60) }
+    var showLandTimePicker by rememberSaveable { mutableStateOf(false) }
+    var seaHours by rememberSaveable { mutableIntStateOf(flight.seaTimeMinutes / 60) }
+    var seaMinutes by rememberSaveable { mutableIntStateOf(flight.seaTimeMinutes % 60) }
+    var showSeaTimePicker by rememberSaveable { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Редактирование полета") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 Box(modifier = Modifier.fillMaxWidth()) {
                     OutlinedTextField(
                         value = formatDate(dateMillis),

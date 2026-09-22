@@ -1,11 +1,14 @@
 package com.example.flightlog.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -19,12 +22,12 @@ fun SettingsScreen(
     onSaveTariff: (TariffEntity) -> Unit,
     onBackClick: () -> Unit
 ) {
-    var effectiveYear by remember { mutableIntStateOf(currentTariff.effectiveFromYear) }
-    var effectiveMonth by remember { mutableIntStateOf(currentTariff.effectiveFromMonth) }
+    var effectiveYear by rememberSaveable { mutableIntStateOf(currentTariff.effectiveFromYear) }
+    var effectiveMonth by rememberSaveable { mutableIntStateOf(currentTariff.effectiveFromMonth) }
 
-    var landRate by remember(currentTariff) { mutableStateOf(currentTariff.landHourlyRate.toString()) }
-    var seaRate by remember(currentTariff) { mutableStateOf(currentTariff.seaHourlyRate.toString()) }
-    var dutyRate by remember(currentTariff) { mutableStateOf(currentTariff.dutyDayRate.toString()) }
+    var landRate by rememberSaveable(currentTariff) { mutableStateOf(currentTariff.landHourlyRate.toString()) }
+    var seaRate by rememberSaveable(currentTariff) { mutableStateOf(currentTariff.seaHourlyRate.toString()) }
+    var dutyRate by rememberSaveable(currentTariff) { mutableStateOf(currentTariff.dutyDayRate.toString()) }
 
     Scaffold(
         topBar = {
@@ -46,6 +49,7 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -101,7 +105,7 @@ fun SettingsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.height(16.dp))
 
             Button(
                 onClick = {

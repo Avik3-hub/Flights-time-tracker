@@ -18,6 +18,10 @@ import com.example.flightlog.data.db.*
 import com.example.flightlog.ui.MainScreen
 import com.example.flightlog.ui.SettingsScreen
 import com.example.flightlog.ui.theme.FlightLogTheme
+import com.example.flightlog.ui.theme.AppTheme
+import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -28,31 +32,36 @@ class MainActivity : ComponentActivity() {
         val prefs = getSharedPreferences("app_settings", Context.MODE_PRIVATE)
 
         setContent {
-            var isDarkTheme by remember { 
-                mutableStateOf(prefs.getBoolean("is_dark_theme", false)) 
+            var selectedTheme by remember {
+                mutableStateOf(AppTheme.fromPreferences(
+                    prefs.getString("theme_mode", null),
+                    prefs.getBoolean("is_dark_theme", false)
+                ))
             }
             
-            var currentScreen by remember { mutableStateOf("main") }
+            var currentScreen by rememberSaveable { mutableStateOf("main") }
+            val screenStateHolder = rememberSaveableStateHolder()
+            BackHandler(enabled = currentScreen != "main") { currentScreen = "main" }
 
             val flights by db.flightDao().getAllFlights().collectAsState(initial = emptyList())
             val dutyRecords by db.dutyDao().getAllDuties().collectAsState(initial = emptyList())
             val tariffs by db.tariffDao().getAllTariffs().collectAsState(initial = emptyList())
 
-            FlightLogTheme(darkTheme = isDarkTheme) {
+            FlightLogTheme(theme = selectedTheme) {
                 Surface(
                     modifier = Modifier.fillMaxSize()
                 ) {
+                    screenStateHolder.SaveableStateProvider(currentScreen) {
                     when (currentScreen) {
                         "main" -> {
                             MainScreen(
                                 flights = flights,
                                 dutyRecords = dutyRecords,
                                 tariffs = tariffs,
-                                isDarkTheme = isDarkTheme,
-                                onToggleTheme = {
-                                    val newThemeState = !isDarkTheme
-                                    isDarkTheme = newThemeState
-                                    prefs.edit().putBoolean("is_dark_theme", newThemeState).apply()
+                                selectedTheme = selectedTheme,
+                                onSelectTheme = { theme ->
+                                    selectedTheme = theme
+                                    prefs.edit().putString("theme_mode", theme.name).apply()
                                 },
                                 onAddFlight = { flight ->
                                     lifecycleScope.launch {
@@ -110,6 +119,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
+                    }
                     }
                 }
             }
