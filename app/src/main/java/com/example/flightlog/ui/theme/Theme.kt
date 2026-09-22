@@ -5,6 +5,10 @@ import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.text.font.Font
+import com.example.flightlog.R
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
@@ -15,15 +19,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 
+val CockpitFont = FontFamily(Font(R.font.russo_one))
+val LocalCockpitTheme = staticCompositionLocalOf { AppTheme.CLASSIC }
+
 private val ClassicColors = darkColorScheme(
-    primary = Color(0xFFE9B75E), onPrimary = Color(0xFF241A0B),
-    primaryContainer = Color(0xFF252624), onPrimaryContainer = Color(0xFFE4DED2),
+    primary = Color(0xFFEFB94F), onPrimary = Color(0xFF241A0B),
+    primaryContainer = Color(0xFF171D1F), onPrimaryContainer = Color(0xFFE4DED2),
     secondary = Color(0xFFD0BA94), onSecondary = Color(0xFF221C13),
     secondaryContainer = Color(0xFF34312A), onSecondaryContainer = Color(0xFFE2D7C4),
     tertiary = Color(0xFFB5C3B9), onTertiary = Color(0xFF18241C),
     tertiaryContainer = Color(0xFF28342C), onTertiaryContainer = Color(0xFFD3DED6),
-    background = Color(0xFF151819), onBackground = Color(0xFFE4DED2),
-    surface = Color(0xFF1D2123), onSurface = Color(0xFFE4DED2),
+    background = Color(0xFF111617), onBackground = Color(0xFFE4DED2),
+    surface = Color(0xFF171D1F), onSurface = Color(0xFFE4DED2),
     surfaceVariant = Color(0xFF25292B), onSurfaceVariant = Color(0xFFBDB9AF),
     surfaceTint = Color.Transparent,
     outline = Color(0xFF797C78), outlineVariant = Color(0xFF3D4242),
@@ -34,51 +41,51 @@ private val ClassicColors = darkColorScheme(
 )
 
 private val BlueColors = lightColorScheme(
-    primary = Color(0xFF245C89), onPrimary = Color.White,
-    primaryContainer = Color(0xFFE3EDF5), onPrimaryContainer = Color(0xFF203A50),
+    primary = Color(0xFF0869B6), onPrimary = Color.White,
+    primaryContainer = Color(0xFFE4F0FC), onPrimaryContainer = Color(0xFF203A50),
     secondary = Color(0xFF486D8A), onSecondary = Color.White,
     secondaryContainer = Color(0xFFE5EDF3), onSecondaryContainer = Color(0xFF29485E),
     tertiary = Color(0xFF427779), onTertiary = Color.White,
     tertiaryContainer = Color(0xFFE1EFEF), onTertiaryContainer = Color(0xFF234F51),
-    background = Color(0xFFF1F4F7), onBackground = Color(0xFF203342),
-    surface = Color(0xFFFCFDFE), onSurface = Color(0xFF203342),
+    background = Color(0xFFF2F7FC), onBackground = Color(0xFF112F53),
+    surface = Color(0xFFFCFDFE), onSurface = Color(0xFF112F53),
     surfaceVariant = Color(0xFFEAF0F5), onSurfaceVariant = Color(0xFF526574),
     surfaceTint = Color.Transparent,
     outline = Color(0xFF728591), outlineVariant = Color(0xFFCED9E1),
     error = Color(0xFFAB3E34), onError = Color.White,
     errorContainer = Color(0xFFFBE9E5), onErrorContainer = Color(0xFF712A23),
-    inverseSurface = Color(0xFF203342), inverseOnSurface = Color(0xFFF1F4F7),
+    inverseSurface = Color(0xFF112F53), inverseOnSurface = Color(0xFFF2F7FC),
     inversePrimary = Color(0xFFA4C6E2), scrim = Color.Black
 )
 
 private val AmoledColors = darkColorScheme(
-    primary = Color(0xFFC7A36A), onPrimary = Color(0xFF19140B),
-    primaryContainer = Color(0xFF0B0D0F), onPrimaryContainer = Color(0xFFC9C5BE),
+    primary = Color(0xFFDCA74F), onPrimary = Color(0xFF19140B),
+    primaryContainer = Color(0xFF0B0D0F), onPrimaryContainer = Color(0xFFBDBAB5),
     secondary = Color(0xFFB7A88E), onSecondary = Color(0xFF16130E),
     secondaryContainer = Color(0xFF171613), onSecondaryContainer = Color(0xFFC5BCAD),
     tertiary = Color(0xFFA3B1A9), onTertiary = Color(0xFF111713),
     tertiaryContainer = Color(0xFF101A14), onTertiaryContainer = Color(0xFFBDC9C0),
-    background = Color.Black, onBackground = Color(0xFFC9C5BE),
-    surface = Color(0xFF0B0D0F), onSurface = Color(0xFFC9C5BE),
+    background = Color.Black, onBackground = Color(0xFFBDBAB5),
+    surface = Color(0xFF0B0D0F), onSurface = Color(0xFFBDBAB5),
     surfaceVariant = Color(0xFF101214), onSurfaceVariant = Color(0xFFA4A19A),
     surfaceTint = Color.Transparent,
     outline = Color(0xFF73736C), outlineVariant = Color(0xFF2B2E30),
     error = Color(0xFFCB958C), onError = Color(0xFF28120E),
     errorContainer = Color(0xFF241310), onErrorContainer = Color(0xFFD4AAA2),
-    inverseSurface = Color(0xFF222426), inverseOnSurface = Color(0xFFC9C5BE),
-    inversePrimary = Color(0xFFC7A36A), scrim = Color.Black
+    inverseSurface = Color(0xFF222426), inverseOnSurface = Color(0xFFBDBAB5),
+    inversePrimary = Color(0xFFDCA74F), scrim = Color.Black
 )
 
 private val BaseTypography = Typography()
 private val CockpitTypography = Typography(
-    displayLarge = BaseTypography.displayLarge.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold),
-    displayMedium = BaseTypography.displayMedium.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold),
-    displaySmall = BaseTypography.displaySmall.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold),
-    headlineLarge = BaseTypography.headlineLarge.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold),
-    headlineMedium = BaseTypography.headlineMedium.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold),
-    headlineSmall = BaseTypography.headlineSmall.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold),
-    titleLarge = BaseTypography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-    titleMedium = BaseTypography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+    displayLarge = BaseTypography.displayLarge.copy(fontFamily = CockpitFont, fontWeight = FontWeight.Bold),
+    displayMedium = BaseTypography.displayMedium.copy(fontFamily = CockpitFont, fontWeight = FontWeight.Bold),
+    displaySmall = BaseTypography.displaySmall.copy(fontFamily = CockpitFont, fontWeight = FontWeight.Bold),
+    headlineLarge = BaseTypography.headlineLarge.copy(fontFamily = CockpitFont, fontWeight = FontWeight.Bold),
+    headlineMedium = BaseTypography.headlineMedium.copy(fontFamily = CockpitFont, fontWeight = FontWeight.Bold),
+    headlineSmall = BaseTypography.headlineSmall.copy(fontFamily = CockpitFont, fontWeight = FontWeight.Bold),
+    titleLarge = BaseTypography.titleLarge.copy(fontFamily = CockpitFont, fontWeight = FontWeight.Normal),
+    titleMedium = BaseTypography.titleMedium.copy(fontFamily = CockpitFont, fontWeight = FontWeight.Normal)
 )
 
 @Composable
@@ -115,6 +122,6 @@ fun FlightLogTheme(theme: AppTheme = AppTheme.CLASSIC, content: @Composable () -
             medium = RoundedCornerShape(12.dp), large = RoundedCornerShape(16.dp),
             extraLarge = RoundedCornerShape(20.dp)
         ),
-        content = content
+        content = { CompositionLocalProvider(LocalCockpitTheme provides resolved, content = content) }
     )
 }

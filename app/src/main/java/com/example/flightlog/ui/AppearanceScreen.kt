@@ -49,8 +49,7 @@ fun MoreScreen(
     selectedTheme: AppTheme,
     onThemeClick: () -> Unit,
     onTariffsClick: () -> Unit,
-    onDutyClick: () -> Unit,
-    onJournalClick: () -> Unit
+    versionName: String
 ) {
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
@@ -59,8 +58,8 @@ fun MoreScreen(
         Text("Настройки и данные", style = MaterialTheme.typography.headlineSmall)
         MoreAction("Оформление", selectedTheme.title, onThemeClick)
         MoreAction("Тарифы", "Ставки за полёты и дежурства", onTariffsClick)
-        MoreAction("Дежурства", "Количество дней за месяц — под формой полёта", onDutyClick)
-        MoreAction("Отчёты и Excel", "Фильтр периода, импорт и выгрузка — в журнале", onJournalClick)
+        Text("Версия $versionName", style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(
             "Режим «Как в системе» следует светлой или тёмной теме Android. " +
                 "Автоматическое расписание задаётся в настройках телефона.",

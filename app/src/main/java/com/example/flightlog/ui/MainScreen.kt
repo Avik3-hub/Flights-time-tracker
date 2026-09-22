@@ -4,10 +4,6 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.MoreHoriz
-import androidx.compose.material.icons.filled.Palette
 import com.example.flightlog.ui.theme.AppTheme
 import android.net.Uri
 import android.widget.Toast
@@ -78,75 +74,10 @@ fun MainScreen(
     var showThemes by rememberSaveable { mutableStateOf(false) }
     BackHandler(enabled = page != 0) { page = 0 }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            if (page == 2) "Новый полёт" else "Счётчик налёта",
-                            style = MaterialTheme.typography.titleLarge
-                        )
-                        Text(
-                            "v. $versionName · ${selectedTheme.title}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
-                navigationIcon = {
-                    if (page == 2) {
-                        IconButton(onClick = { page = 0 }) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "Назад к обзору")
-                        }
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { showThemes = true }) {
-                        Icon(Icons.Default.Palette, contentDescription = "Выбрать тему")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                )
-            )
-        },
-        bottomBar = {
-            NavigationBar(
-                containerColor = MaterialTheme.colorScheme.background,
-                tonalElevation = 0.dp
-            ) {
-                listOf(0 to "Обзор", 1 to "Журнал", 3 to "Ещё").forEach { (index, title) ->
-                    NavigationBarItem(
-                        selected = page == index,
-                        onClick = { page = index },
-                        icon = {
-                            Icon(
-                                when (index) {
-                                    0 -> Icons.Default.Home
-                                    1 -> Icons.Default.List
-                                    else -> Icons.Default.MoreHoriz
-                                },
-                                contentDescription = null
-                            )
-                        },
-                        label = { Text(title) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.primary,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    )
-                }
-            }
-        }
-    ) { innerPadding ->
+    CockpitScaffold(page = page, onPageChange = { page = it }) { innerPadding ->
         Column(Modifier.fillMaxSize().padding(innerPadding)) {
             // Fixed action does not cover the last journal row on small screens.
-            if (page == 0 || page == 1) {
+            if (page == 1) {
                 OutlinedButton(
                     onClick = { page = 2 },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp),
@@ -190,8 +121,7 @@ fun MainScreen(
                             selectedTheme = selectedTheme,
                             onThemeClick = { showThemes = true },
                             onTariffsClick = onSettingsClick,
-                            onDutyClick = { page = 2 },
-                            onJournalClick = { page = 1 }
+                            versionName = versionName
                         )
                     }
                 }
