@@ -252,14 +252,14 @@ private fun MetricTile(label: String, value: String, icon: ImageVector, theme: A
     val fill = when (theme) {
         AppTheme.BLUE -> Color(0xFFEAF4FF)
         AppTheme.AMOLED -> Color(0xFF080A0C)
-        else -> Color.Transparent
+        else -> MaterialTheme.colorScheme.surface
     }
     val text = if (isBlue) Color(0xFF0B3157) else MaterialTheme.colorScheme.primary
     val muted = if (isBlue) Color(0xFF315574) else MaterialTheme.colorScheme.onSurfaceVariant
     Surface(
         modifier = modifier,
         color = fill, shape = RoundedCornerShape(7.dp),
-        border = if (theme == AppTheme.AMOLED) BorderStroke(1.dp, Color(0xFF202528)) else null
+        border = if (isBlue) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(Modifier.padding(horizontal = 7.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
