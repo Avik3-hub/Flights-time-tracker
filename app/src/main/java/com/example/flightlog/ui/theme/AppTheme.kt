@@ -2,9 +2,9 @@ package com.example.flightlog.ui.theme
 
 enum class AppTheme(val title: String, val description: String) {
     CLASSIC("Классика", "Графит и янтарные показатели"),
-    BLUE("Синяя", "Светлые поверхности и спокойный авиационный синий"),
+    BLUE("Светлая", "Светлые поверхности и спокойный авиационный синий"),
     AMOLED("Тёмная", "AMOLED: чёрный фон и приглушённые акценты"),
-    SYSTEM("Как в системе", "Синяя в светлом режиме, тёмная в ночном");
+    SYSTEM("Как в системе", "Светлая в светлом режиме, тёмная в ночном");
 
     fun resolve(systemDark: Boolean): AppTheme =
         if (this == SYSTEM) { if (systemDark) AMOLED else BLUE } else this

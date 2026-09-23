@@ -1048,21 +1048,27 @@ fun FlightRowItem(
             flight.missionNumber?.takeIf { it.isNotBlank() }?.let {
                 Text("Задание: $it", style = MaterialTheme.typography.bodyMedium)
             }
-            Text(flight.flightType.ifBlank { "Пассажирский" }, style = MaterialTheme.typography.bodyLarge)
-            Text("КВС: ${flight.captain.ifBlank { "Не указан" }}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(
-                (flight.landTimeMinutes + flight.seaTimeMinutes).minutesToHoursAndMinutes(),
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Text(
-                "Земля: ${flight.landTimeMinutes.minutesToHoursAndMinutes()}\n" +
-                    "Море: ${flight.seaTimeMinutes.minutesToHoursAndMinutes()}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(flight.flightType.ifBlank { "Пассажирский" }, style = MaterialTheme.typography.bodyLarge)
+                    Text("КВС: ${flight.captain.ifBlank { "Не указан" }}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text((flight.landTimeMinutes + flight.seaTimeMinutes).minutesToHoursAndMinutes(),
+                        style = MaterialTheme.typography.headlineSmall,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.End,
+                        color = MaterialTheme.colorScheme.primary)
+                    Text("Земля: ${flight.landTimeMinutes.minutesToHoursAndMinutes()}\n" +
+                        "Море: ${flight.seaTimeMinutes.minutesToHoursAndMinutes()}",
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.End,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
         }
     }
 }
