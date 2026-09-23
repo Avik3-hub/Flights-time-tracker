@@ -81,11 +81,12 @@ fun MainScreen(
                 OutlinedButton(
                     onClick = { page = 2 },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(9.dp)
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Полёт", fontWeight = FontWeight.SemiBold)
+                    Text("Полёт", fontWeight = FontWeight.Normal)
                 }
             }
             Box(Modifier.weight(1f)) {
@@ -173,6 +174,7 @@ fun InputTabScreen(
     var aircraftNumber by rememberSaveable { mutableStateOf("") }
     var captain by rememberSaveable { mutableStateOf("") }
     var missionNumber by rememberSaveable { mutableStateOf("") }
+    var flightType by rememberSaveable { mutableStateOf("") }
     var landHours by rememberSaveable { mutableIntStateOf(0) }
     var landMinutes by rememberSaveable { mutableIntStateOf(0) }
     var showLandTimePicker by rememberSaveable { mutableStateOf(false) }
@@ -238,7 +240,7 @@ fun InputTabScreen(
                     Text(
                         text = "Новая запись полета",
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Normal
                     )
 
                     // Поле: Дата полета (кликабельно целиком)
@@ -306,6 +308,7 @@ fun InputTabScreen(
                         )
                     }
 
+                    FlightTypeField(flightType, { flightType = it })
                     ExposedDropdownMenuBox(
                         expanded = captainExpanded && filteredCaptains.isNotEmpty(),
                         onExpandedChange = { captainExpanded = !captainExpanded }
@@ -389,6 +392,7 @@ fun InputTabScreen(
                                         aircraftNumber = aircraftNumber,
                                         captain = captain,
                                         missionNumber = missionNumber.ifBlank { null },
+                                        flightType = flightType.trim().ifBlank { "Пассажирский" },
                                         landTimeMinutes = landHours * 60 + landMinutes,
                                         seaTimeMinutes = seaHours * 60 + seaMinutes
                                     )
@@ -396,6 +400,7 @@ fun InputTabScreen(
                                 aircraftNumber = ""
                                 captain = ""
                                 missionNumber = ""
+                                flightType = ""
                                 landHours = 0
                                 landMinutes = 0
                                 seaHours = 0
@@ -428,7 +433,7 @@ fun InputTabScreen(
                     Text(
                         text = "Дежурство (Варандей)",
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Normal
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -645,6 +650,7 @@ fun StatisticsTabScreen(
     onDeleteFlight: (Long) -> Unit,
     onImportSuccess: (List<FlightEntity>, List<DutyEntity>, List<TariffEntity>) -> Unit = { _, _, _ -> }
 ) {
+    var showFilters by rememberSaveable { mutableStateOf(false) }
     var selectedYear by rememberSaveable { mutableIntStateOf(initialYear) }
     var selectedMonth by rememberSaveable { mutableIntStateOf(initialMonth) }
     var startDay by rememberSaveable { mutableStateOf<Int?>(null) }
@@ -718,9 +724,18 @@ fun StatisticsTabScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            Card(modifier = Modifier.fillMaxWidth()) {
+            Card(modifier = Modifier.fillMaxWidth(),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(modifier = Modifier.padding(12.dp)) {
-                    Text("Фильтр периода", style = MaterialTheme.typography.labelLarge)
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("${monthNames[selectedMonth]} $selectedYear", style = MaterialTheme.typography.titleMedium)
+                            Text("${startDay ?: 1}–${endDay ?: "конец"} · фильтр дней", style = MaterialTheme.typography.bodySmall)
+                        }
+                        TextButton(onClick = { showFilters = !showFilters }) { Text(if (showFilters) "Свернуть" else "Период") }
+                    }
+                    if (showFilters) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -847,6 +862,7 @@ fun StatisticsTabScreen(
                             }
                         }
                     }
+                    }
                 }
             }
         }
@@ -868,7 +884,7 @@ fun StatisticsTabScreen(
             Text(
                 text = "Полеты за выбранный период (${filteredFlights.size})",
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Normal
             )
         }
         items(filteredFlights, key = { it.id }) { flight ->
@@ -945,117 +961,25 @@ fun SummaryCard(
         }
     }
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "Итоговая выплата (включая дежурство и с вычетом 13% НДФЛ)",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-            )
-            Text(
-                text = "${String.format("%.2f", report.totalPayment)} ₽",
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-            if (dutyDays > 0) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "За дежурство ($dutyDays дн.): ${String.format("%.2f", report.dutyPayment)} ₽",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.9f)
-                )
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        FinancePanel(report)
+        CockpitPanel {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Налёт: ${report.totalMinutes.minutesToHoursAndMinutes()}")
+                Text("Лётных дней: ${report.totalFlightDays}")
             }
-            Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f))
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text(
-                        text = "Общий налет",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                    )
-                    Text(
-                        text = report.totalMinutes.minutesToHoursAndMinutes(),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        text = "Полетных дней",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                    )
-                    Text(
-                        text = "${report.totalFlightDays} дн.",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text(
-                        text = "Земля",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                    )
-                    Text(
-                        text = report.totalLandMinutes.minutesToHoursAndMinutes(),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        text = "Море",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                    )
-                    Text(
-                        text = report.totalSeaMinutes.minutesToHoursAndMinutes(),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(
-                onClick = { 
-                    exportLauncher.launch("Отчет_налет_${selectedYear}_${selectedMonth}.xlsx") 
-                },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.secondary
-                )
-            ) {
-                Text("Выгрузить отчет в Excel (.xlsx)")
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedButton(
-                onClick = { showImportConfirmation = true },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Импортировать из Excel (.xlsx)")
+            Metrics(report, dutyDays)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = { exportLauncher.launch("Отчет_налет_${selectedYear}_${selectedMonth}.xlsx") },
+                    modifier = Modifier.weight(1f),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(9.dp)
+                ) { Text("Экспорт Excel") }
+                OutlinedButton(
+                    onClick = { showImportConfirmation = true }, modifier = Modifier.weight(1f),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(9.dp)
+                ) { Text("Импорт Excel") }
             }
         }
     }
@@ -1065,7 +989,7 @@ fun SummaryCard(
             onDismissRequest = { showImportConfirmation = false },
             title = { Text("Импорт данных") },
             text = {
-                Text("Убедитесь, что выбираете файл Excel, ранее выгруженный из этого приложения, версии не ниже 1.1.0 (версия приложения указана сверху на главной). Найденные полеты, дежурства и тарифы будут добавлены в базу.\n\nПродолжить?")
+                Text("Убедитесь, что выбираете файл Excel, ранее выгруженный из этого приложения, версии не ниже 1.1.0 (версия приложения указана в «Ещё»). Найденные полеты, дежурства и тарифы будут добавлены в базу.\n\nПродолжить?")
             },
             confirmButton = {
                 TextButton(
@@ -1115,7 +1039,7 @@ fun FlightRowItem(
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "№ ВС: ${flight.aircraftNumber}",
+                    text = displayAircraftNumber(flight.aircraftNumber),
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f)
                 )
@@ -1137,6 +1061,7 @@ fun FlightRowItem(
             flight.missionNumber?.takeIf { it.isNotBlank() }?.let {
                 Text("Задание: $it", style = MaterialTheme.typography.bodyMedium)
             }
+            Text(flight.flightType.ifBlank { "Пассажирский" }, style = MaterialTheme.typography.bodyLarge)
             Text("КВС: ${flight.captain.ifBlank { "Не указан" }}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1167,6 +1092,7 @@ fun EditFlightDialog(
     var aircraftNumber by rememberSaveable { mutableStateOf(flight.aircraftNumber) }
     var captain by rememberSaveable { mutableStateOf(flight.captain) }
     var missionNumber by rememberSaveable { mutableStateOf(flight.missionNumber ?: "") }
+    var flightType by rememberSaveable { mutableStateOf(flight.flightType) }
     var landHours by rememberSaveable { mutableIntStateOf(flight.landTimeMinutes / 60) }
     var landMinutes by rememberSaveable { mutableIntStateOf(flight.landTimeMinutes % 60) }
     var showLandTimePicker by rememberSaveable { mutableStateOf(false) }
@@ -1214,6 +1140,7 @@ fun EditFlightDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+                FlightTypeField(flightType, { flightType = it })
                 OutlinedTextField(
                     value = captain,
                     onValueChange = { captain = it },
@@ -1267,6 +1194,7 @@ fun EditFlightDialog(
                         aircraftNumber = aircraftNumber,
                         captain = captain,
                         missionNumber = missionNumber.ifBlank { null },
+                        flightType = flightType.trim().ifBlank { "Пассажирский" },
                         landTimeMinutes = landHours * 60 + landMinutes,
                         seaTimeMinutes = seaHours * 60 + seaMinutes
                     )

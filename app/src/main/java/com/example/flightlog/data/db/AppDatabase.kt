@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [
@@ -11,7 +13,7 @@ import androidx.room.RoomDatabase
         DutyEntity::class,
         TariffEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -20,6 +22,12 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun tariffDao(): TariffDao
 
     companion object {
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE flight_records ADD COLUMN flightType TEXT NOT NULL DEFAULT 'Пассажирский'")
+            }
+        }
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
@@ -30,7 +38,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "flight_log_database"
                 )
-                    .fallbackToDestructiveMigration()
+                    .addMigrations(MIGRATION_5_6)
                     .build()
                 INSTANCE = instance
                 instance

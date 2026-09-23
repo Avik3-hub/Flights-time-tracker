@@ -19,7 +19,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 
-val CockpitFont = FontFamily(Font(R.font.russo_one))
+val CockpitFont = FontFamily(Font(R.font.oswald))
+val CabinFont = FontFamily(Font(R.font.roboto_condensed))
 val LocalCockpitTheme = staticCompositionLocalOf { AppTheme.CLASSIC }
 
 private val ClassicColors = darkColorScheme(
@@ -78,14 +79,21 @@ private val AmoledColors = darkColorScheme(
 
 private val BaseTypography = Typography()
 private val CockpitTypography = Typography(
-    displayLarge = BaseTypography.displayLarge.copy(fontFamily = CockpitFont, fontWeight = FontWeight.Bold),
-    displayMedium = BaseTypography.displayMedium.copy(fontFamily = CockpitFont, fontWeight = FontWeight.Bold),
-    displaySmall = BaseTypography.displaySmall.copy(fontFamily = CockpitFont, fontWeight = FontWeight.Bold),
-    headlineLarge = BaseTypography.headlineLarge.copy(fontFamily = CockpitFont, fontWeight = FontWeight.Bold),
-    headlineMedium = BaseTypography.headlineMedium.copy(fontFamily = CockpitFont, fontWeight = FontWeight.Bold),
-    headlineSmall = BaseTypography.headlineSmall.copy(fontFamily = CockpitFont, fontWeight = FontWeight.Bold),
-    titleLarge = BaseTypography.titleLarge.copy(fontFamily = CockpitFont, fontWeight = FontWeight.Normal),
-    titleMedium = BaseTypography.titleMedium.copy(fontFamily = CockpitFont, fontWeight = FontWeight.Normal)
+    displayLarge = BaseTypography.displayLarge.copy(fontFamily = CockpitFont),
+    displayMedium = BaseTypography.displayMedium.copy(fontFamily = CockpitFont),
+    displaySmall = BaseTypography.displaySmall.copy(fontFamily = CockpitFont),
+    headlineLarge = BaseTypography.headlineLarge.copy(fontFamily = CockpitFont, fontWeight = FontWeight.Normal),
+    headlineMedium = BaseTypography.headlineMedium.copy(fontFamily = CockpitFont, fontWeight = FontWeight.Normal),
+    headlineSmall = BaseTypography.headlineSmall.copy(fontFamily = CabinFont, fontWeight = FontWeight.Normal),
+    titleLarge = BaseTypography.titleLarge.copy(fontFamily = CabinFont, fontWeight = FontWeight.Medium),
+    titleMedium = BaseTypography.titleMedium.copy(fontFamily = CabinFont, fontWeight = FontWeight.Normal),
+    titleSmall = BaseTypography.titleSmall.copy(fontFamily = CabinFont, fontWeight = FontWeight.Normal),
+    bodyLarge = BaseTypography.bodyLarge.copy(fontFamily = CabinFont),
+    bodyMedium = BaseTypography.bodyMedium.copy(fontFamily = CabinFont),
+    bodySmall = BaseTypography.bodySmall.copy(fontFamily = CabinFont),
+    labelLarge = BaseTypography.labelLarge.copy(fontFamily = CabinFont, fontWeight = FontWeight.Normal),
+    labelMedium = BaseTypography.labelMedium.copy(fontFamily = CabinFont, fontWeight = FontWeight.Normal),
+    labelSmall = BaseTypography.labelSmall.copy(fontFamily = CabinFont)
 )
 
 @Composable
@@ -119,8 +127,8 @@ fun FlightLogTheme(theme: AppTheme = AppTheme.CLASSIC, content: @Composable () -
         typography = CockpitTypography,
         shapes = Shapes(
             extraSmall = RoundedCornerShape(4.dp), small = RoundedCornerShape(8.dp),
-            medium = RoundedCornerShape(12.dp), large = RoundedCornerShape(16.dp),
-            extraLarge = RoundedCornerShape(20.dp)
+            medium = RoundedCornerShape(12.dp), large = RoundedCornerShape(10.dp),
+            extraLarge = RoundedCornerShape(12.dp)
         ),
         content = { CompositionLocalProvider(LocalCockpitTheme provides resolved, content = content) }
     )

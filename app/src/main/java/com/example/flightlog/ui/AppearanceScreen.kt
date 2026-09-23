@@ -7,6 +7,11 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,9 +60,9 @@ fun MoreScreen(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("Настройки и данные", style = MaterialTheme.typography.headlineSmall)
-        MoreAction("Оформление", selectedTheme.title, onThemeClick)
-        MoreAction("Тарифы", "Ставки за полёты и дежурства", onTariffsClick)
+        Text("Параметры борта", style = MaterialTheme.typography.titleMedium)
+        MoreAction("Оформление", selectedTheme.title, Icons.Outlined.Palette, onThemeClick)
+        MoreAction("Тарифы", "Полёты и дежурства", Icons.Outlined.Tune, onTariffsClick)
         Text("Версия $versionName", style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(
@@ -71,18 +76,23 @@ fun MoreScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MoreAction(title: String, subtitle: String, onClick: () -> Unit) {
+private fun MoreAction(title: String, subtitle: String, icon: ImageVector, onClick: () -> Unit) {
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Icon(icon, null, tint = MaterialTheme.colorScheme.primary)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary)
             Text(subtitle, style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
