@@ -56,6 +56,7 @@ object ExcelExporter {
             flightHeader.createCell(3).setCellValue("ФИО КВС")
             flightHeader.createCell(4).setCellValue("Земля (ч:мм)")
             flightHeader.createCell(5).setCellValue("Море (ч:мм)")
+            flightHeader.createCell(6).setCellValue("Тип полёта")
 
             var rowIndex = 1
             for (flight in sortedFlights) {
@@ -68,8 +69,9 @@ object ExcelExporter {
                 row.createCell(3).setCellValue(flight.captain)
                 row.createCell(4).setCellValue(formatMinutesToHHMM(flight.landTimeMinutes))
                 row.createCell(5).setCellValue(formatMinutesToHHMM(flight.seaTimeMinutes))
+                row.createCell(6).setCellValue(flight.flightType.ifBlank { "Пассажирский" })
             }
-            for (i in 0..5) {
+            for (i in 0..6) {
                 flightSheet.setColumnWidth(i, 10 * 256)
             }
 

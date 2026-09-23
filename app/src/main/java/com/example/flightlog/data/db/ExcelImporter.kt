@@ -27,7 +27,7 @@ object ExcelImporter {
         val duties = mutableListOf<DutyEntity>()
         val tariffs = mutableListOf<TariffEntity>()
 
-        context.contentResolver.openOutputStream(uri)?.use { /* ... */ } // keep existing stream logic
+
         
         context.contentResolver.openInputStream(uri)?.use { inputStream ->
             val workbook = WorkbookFactory.create(inputStream)
@@ -60,7 +60,8 @@ object ExcelImporter {
                                     captain = captain,
                                     missionNumber = missionNum,
                                     landTimeMinutes = landMinutes,
-                                    seaTimeMinutes = seaMinutes
+                                    seaTimeMinutes = seaMinutes,
+                                    flightType = getCellSafe(row, 6).ifBlank { "Пассажирский" }
                                 )
                             )
                         } catch (e: Exception) {

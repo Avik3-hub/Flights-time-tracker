@@ -7,13 +7,14 @@ plugins {
 android {
     namespace = "com.example.flightlog"
     compileSdk = 34
+    testOptions.unitTests.isIncludeAndroidResources = true
 
     defaultConfig {
         applicationId = "com.example.flightlog"
         minSdk = 26
         targetSdk = 34
-        versionCode = 26
-        versionName = "2.0.1"
+        versionCode = 27
+        versionName = "2.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -96,6 +97,7 @@ dependencies {
     kapt("androidx.room:room-compiler:$roomVersion")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.12.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")

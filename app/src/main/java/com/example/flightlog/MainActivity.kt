@@ -23,6 +23,9 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import androidx.compose.runtime.LaunchedEffect
+import com.example.flightlog.ui.LaunchScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -32,6 +35,8 @@ class MainActivity : ComponentActivity() {
         val prefs = getSharedPreferences("app_settings", Context.MODE_PRIVATE)
 
         setContent {
+            var launching by rememberSaveable { mutableStateOf(savedInstanceState == null) }
+            LaunchedEffect(Unit) { delay(700); launching = false }
             var selectedTheme by remember {
                 mutableStateOf(AppTheme.fromPreferences(
                     prefs.getString("theme_mode", null),
@@ -47,7 +52,8 @@ class MainActivity : ComponentActivity() {
             val dutyRecords by db.dutyDao().getAllDuties().collectAsState(initial = emptyList())
             val tariffs by db.tariffDao().getAllTariffs().collectAsState(initial = emptyList())
 
-            FlightLogTheme(theme = selectedTheme) {
+            FlightLogTheme(theme = if (launching) AppTheme.AMOLED else selectedTheme) {
+                if (launching) LaunchScreen() else
                 Surface(
                     modifier = Modifier.fillMaxSize()
                 ) {

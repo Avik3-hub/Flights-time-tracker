@@ -39,6 +39,7 @@ import com.example.flightlog.data.db.TariffEntity
 import com.example.flightlog.domain.CalculationEngine
 import com.example.flightlog.domain.MonthlyReport
 import com.example.flightlog.ui.theme.AppTheme
+import com.example.flightlog.ui.theme.CabinFont
 import com.example.flightlog.ui.theme.CockpitFont
 import com.example.flightlog.ui.theme.LocalCockpitTheme
 import java.time.YearMonth
@@ -100,54 +101,23 @@ fun OverviewContent(
             .padding(horizontal = 14.dp).padding(bottom = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        when (theme) {
-            AppTheme.CLASSIC -> {
-                CockpitPanel {
-                    MonthSelector(year, month, onPeriodChange)
-                    Box(Modifier.fillMaxWidth().height(100.dp)) {
-                        HelicopterArtwork(
-                            Modifier.fillMaxWidth(0.52f).height(52.dp).align(Alignment.TopEnd),
-                            alpha = 0.55f
-                        )
-                        Column(Modifier.fillMaxWidth(0.64f).align(Alignment.BottomStart)) {
-                            Text("Налёт за месяц", fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            TotalReadout(report.totalMinutes, MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    Metrics(report, dutyDays)
+        AircraftHeader()
+        MonthSelector(year, month, onPeriodChange)
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            // Side by side when readable; enlarged fonts get full-width panels.
+            if (maxWidth >= 320.dp && LocalDensity.current.fontScale <= 1.15f) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Box(Modifier.weight(1f)) { MonthlyTimePanel(report, compact = true) }
+                    Box(Modifier.weight(1f)) { FinancePanel(report, compact = true) }
                 }
-            }
-            AppTheme.BLUE -> {
-                Box(Modifier.fillMaxWidth().height(74.dp)) {
-                    BlueHorizon(Modifier.matchParentSize())
-                    HelicopterArtwork(
-                        Modifier.fillMaxWidth(0.90f).height(74.dp).align(Alignment.CenterEnd)
-                    )
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    MonthlyTimePanel(report)
+                    FinancePanel(report)
                 }
-                CockpitPanel(padding = 4) { MonthSelector(year, month, onPeriodChange) }
-                CockpitPanel(
-                    gradient = listOf(Color(0xFF096FC5), Color(0xFF034F9D)),
-                    border = Color(0xFF1267B3)
-                ) {
-                    Text("Налёт за месяц", color = Color.White, fontFamily = CockpitFont,
-                        fontSize = 18.sp)
-                    TotalReadout(report.totalMinutes, Color.White)
-                    Metrics(report, dutyDays)
-                }
-            }
-            else -> {
-                HelicopterArtwork(Modifier.fillMaxWidth().height(96.dp), alpha = 0.46f)
-                MonthSelector(year, month, onPeriodChange)
-                CockpitPanel {
-                    Text("Налёт за месяц", color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 15.sp)
-                    TotalReadout(report.totalMinutes, MaterialTheme.colorScheme.primary)
-                }
-                Metrics(report, dutyDays)
             }
         }
+        Metrics(report, dutyDays)
 
         RecentFlightsPanel(flights, onEditFlight, onOpenJournal, onAddFlight)
 
@@ -163,23 +133,10 @@ fun OverviewContent(
             ) {
                 Icon(Icons.Default.Add, null, Modifier.size(26.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Полёт", fontFamily = CockpitFont, fontSize = 22.sp)
+                Text("Полёт", fontFamily = CabinFont, fontSize = 22.sp)
             }
         }
-        // Payment remains accessible without displacing the logbook below the fold.
-        Row(
-            Modifier.fillMaxWidth().clickable(onClick = onOpenJournal).padding(vertical = 6.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text("Расчётная выплата", fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("С дежурствами, после НДФЛ", fontSize = 10.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Text(String.format(Locale.getDefault(), "%,.2f ₽", report.totalPayment),
-                fontSize = 15.sp, color = MaterialTheme.colorScheme.primary)
-        }
+
     }
 }
 
@@ -188,14 +145,19 @@ internal fun HelicopterArtwork(modifier: Modifier = Modifier, alpha: Float = 1f)
     val blue = LocalCockpitTheme.current == AppTheme.BLUE
     // Multiplication preserves shading and panel detail; it is not a flat icon tint.
     val filter = if (blue) ColorFilter.colorMatrix(ColorMatrix(floatArrayOf(
-        0.17f, 0f, 0f, 0f, 0f,
-        0f, 0.52f, 0f, 0f, 0f,
-        0f, 0f, 0.90f, 0f, 0f,
+        0.20f, 0f, 0f, 0f, -8f,
+        0f, 0.58f, 0f, 0f, -12f,
+        0f, 0f, 1.02f, 0f, -16f,
         0f, 0f, 0f, 1f, 0f
-    ))) else null
+    ))) else ColorFilter.colorMatrix(ColorMatrix(floatArrayOf(
+        1.15f, 0f, 0f, 0f, -18f,
+        0f, 1.15f, 0f, 0f, -18f,
+        0f, 0f, 1.15f, 0f, -18f,
+        0f, 0f, 0f, 1f, 0f
+    )))
     Image(
         painterResource(R.drawable.mi171_artwork),
-        contentDescription = "Ми-171",
+        contentDescription = "Ми-8АМТ",
         modifier = modifier,
         contentScale = ContentScale.Fit,
         alpha = alpha,
@@ -232,7 +194,8 @@ private fun MonthSelector(year: Int, month: Int, onChange: (Int, Int) -> Unit) {
         Text(
             "${MonthNames[month - 1]} $year", modifier = Modifier.weight(1f),
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            fontFamily = CockpitFont, fontSize = 18.sp
+            fontFamily = CabinFont, fontSize = 19.sp,
+            letterSpacing = 2.sp
         )
         IconButton(onClick = {
             val value = period.plusMonths(1); onChange(value.year, value.monthValue)
@@ -242,7 +205,7 @@ private fun MonthSelector(year: Int, month: Int, onChange: (Int, Int) -> Unit) {
 
 @OptIn(ExperimentalTextApi::class)
 @Composable
-private fun TotalReadout(minutes: Int, color: Color) {
+internal fun TotalReadout(minutes: Int, color: Color) {
     val hours = (minutes / 60).toString()
     val remainder = String.format(Locale.getDefault(), "%02d", minutes % 60)
     val measurer = rememberTextMeasurer()
@@ -263,7 +226,7 @@ private fun TotalReadout(minutes: Int, color: Color) {
 }
 
 @Composable
-private fun Metrics(report: MonthlyReport, dutyDays: Int) {
+internal fun Metrics(report: MonthlyReport, dutyDays: Int) {
     val theme = LocalCockpitTheme.current
     val largeFont = LocalDensity.current.fontScale > 1.25f
     val metrics = listOf(
@@ -307,12 +270,13 @@ private fun MetricTile(label: String, value: String, icon: ImageVector, theme: A
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Icon(icon, null, Modifier.size(15.dp), tint = muted)
-                Text(label, fontSize = 11.sp, color = muted, maxLines = 1)
+                Text(label, fontSize = 12.sp, lineHeight = 16.sp, color = muted, maxLines = 1)
             }
             BoxWithConstraints {
                 val fontScale = LocalDensity.current.fontScale
                 val fontSize = minOf(25f, maxWidth.value / (value.length * 0.70f * fontScale))
                 Text(value, fontFamily = CockpitFont, fontSize = fontSize.sp,
+                    lineHeight = 32.sp,
                     color = text, maxLines = 1, softWrap = false)
             }
         }
@@ -330,14 +294,14 @@ private fun RecentFlightsPanel(
     CockpitPanel(padding = 0, spacing = 0) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically) {
-            Text("Последние полёты", Modifier.weight(1f), fontSize = 15.sp,
-                fontFamily = CockpitFont)
+            Text("Последние полёты", Modifier.weight(1f), fontSize = 18.sp,
+                fontFamily = CabinFont)
             if (night) {
                 OutlinedButton(onClick = onAdd, shape = RoundedCornerShape(7.dp),
-                    contentPadding = PaddingValues(horizontal = 10.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)) {
                     Icon(Icons.Default.Add, null, Modifier.size(16.dp))
-                    Text("Полёт", fontSize = 12.sp)
+                    Text("Полёт", fontSize = 16.sp)
                 }
             } else {
                 TextButton(onClick = onJournal, contentPadding = PaddingValues(4.dp)) {
@@ -353,26 +317,9 @@ private fun RecentFlightsPanel(
                 TextButton(onClick = onAdd) { Text("Добавить полёт") }
             }
         } else {
-            if (LocalDensity.current.fontScale <= 1.25f) {
-                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    val muted = MaterialTheme.colorScheme.onSurfaceVariant
-                    Text("ДАТА", Modifier.width(36.dp), fontSize = 9.sp, color = muted)
-                    Text("БОРТ №", Modifier.width(82.dp), fontSize = 9.sp, color = muted)
-                    Text("ЗАДАНИЕ", Modifier.weight(1f), fontSize = 9.sp, color = muted)
-                    Text("НАЛЁТ", Modifier.width(50.dp), fontSize = 9.sp, color = muted,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.End)
-                }
-            }
             flights.take(3).forEach { flight ->
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 CompactFlightRow(flight, onClick = { onEdit(flight) })
-            }
-        }
-        if (night && flights.isNotEmpty()) {
-            TextButton(onClick = onJournal, modifier = Modifier.align(Alignment.End)) {
-                Text("Все полёты", fontSize = 12.sp)
-                Icon(Icons.Default.ChevronRight, null, Modifier.size(16.dp))
             }
         }
     }
@@ -384,22 +331,24 @@ private fun CompactFlightRow(flight: FlightEntity, onClick: () -> Unit) {
     val duration = flightTimeDigits(flight.landTimeMinutes + flight.seaTimeMinutes)
     val largeFont = LocalDensity.current.fontScale > 1.25f
     val blue = LocalCockpitTheme.current == AppTheme.BLUE
-    val description = flight.missionNumber?.takeIf { it.isNotBlank() } ?: flight.captain
+    val description = flight.flightType.ifBlank { "Пассажирский" }
     if (!largeFont) {
         Row(Modifier.fillMaxWidth().clickable(onClick = onClick)
             .heightIn(min = 48.dp).padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(date.take(5), Modifier.width(36.dp), fontSize = 12.sp,
+            Text(date.take(5), Modifier.width(36.dp), fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(flight.aircraftNumber, Modifier.width(82.dp), fontSize = 12.sp,
+            Text(displayAircraftNumber(flight.aircraftNumber), Modifier.width(82.dp), fontSize = 13.sp,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(description, Modifier.weight(1f), fontSize = 11.sp,
+            Text(description, Modifier.weight(1f), fontSize = 14.sp,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(duration, Modifier.width(50.dp), fontFamily = CockpitFont, fontSize = 17.sp,
+            Text(duration, Modifier.width(50.dp), fontFamily = CockpitFont, fontSize = 20.sp,
                 maxLines = 1, textAlign = androidx.compose.ui.text.style.TextAlign.End,
                 color = if (blue) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.primary)
+            Icon(Icons.Default.ChevronRight, null, Modifier.size(14.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         return
     }
@@ -412,7 +361,7 @@ private fun CompactFlightRow(flight: FlightEntity, onClick: () -> Unit) {
     ) {
         Text(date.take(5), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(flight.aircraftNumber, fontSize = 14.sp,
+            Text(displayAircraftNumber(flight.aircraftNumber), fontSize = 14.sp,
                 maxLines = if (largeFont) 2 else 1, overflow = TextOverflow.Ellipsis)
             if (description.isNotBlank()) {
                 Text(description, fontSize = 11.sp, maxLines = if (largeFont) 2 else 1,
@@ -427,8 +376,9 @@ private fun CompactFlightRow(flight: FlightEntity, onClick: () -> Unit) {
 }
 
 @Composable
-private fun CockpitPanel(
+internal fun CockpitPanel(
     padding: Int = 14,
+    modifier: Modifier = Modifier,
     spacing: Int = 8,
     gradient: List<Color>? = null,
     border: Color = MaterialTheme.colorScheme.outlineVariant,
@@ -437,7 +387,7 @@ private fun CockpitPanel(
     val fill = MaterialTheme.colorScheme.surface
     val colors = gradient ?: listOf(fill, fill.copy(alpha = 0.96f))
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         color = Color.Transparent,
         shape = RoundedCornerShape(9.dp),
         border = BorderStroke(1.dp, border)

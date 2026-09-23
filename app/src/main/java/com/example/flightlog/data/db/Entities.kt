@@ -1,5 +1,6 @@
 package com.example.flightlog.data.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -11,7 +12,8 @@ data class FlightEntity(
     val captain: String,
     val missionNumber: String?,
     val landTimeMinutes: Int,
-    val seaTimeMinutes: Int
+    val seaTimeMinutes: Int,
+    @ColumnInfo(defaultValue = "'Пассажирский'") val flightType: String = "Пассажирский"
 )
 
 @Entity(
