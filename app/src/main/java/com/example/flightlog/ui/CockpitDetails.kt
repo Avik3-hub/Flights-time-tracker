@@ -81,7 +81,7 @@ internal fun AircraftHeader() {
 internal fun MonthlyTimePanel(report: MonthlyReport, compact: Boolean = false) {
     val blue = LocalCockpitTheme.current == AppTheme.BLUE
     val foreground = if (blue) Color.White else MaterialTheme.colorScheme.primary
-    CockpitPanel(modifier = if (compact) Modifier.heightIn(min = 132.dp) else Modifier,
+    CockpitPanel(modifier = if (compact) Modifier.fillMaxHeight().heightIn(min = 132.dp) else Modifier,
         gradient = if (blue) listOf(Color(0xFF096FC5), Color(0xFF034F9D)) else null) {
         Text("Налёт за месяц", fontSize = 15.sp, lineHeight = 20.sp,
             color = if (blue) Color.White else MaterialTheme.colorScheme.onSurfaceVariant)
@@ -95,7 +95,7 @@ internal fun MonthlyTimePanel(report: MonthlyReport, compact: Boolean = false) {
 
 @Composable
 internal fun FinancePanel(report: MonthlyReport, compact: Boolean = false) {
-    CockpitPanel(modifier = if (compact) Modifier.heightIn(min = 132.dp) else Modifier,
+    CockpitPanel(modifier = if (compact) Modifier.fillMaxHeight().heightIn(min = 132.dp) else Modifier,
         padding = if (compact) 10 else 14, spacing = 5) {
         Text("Расчётная выплата", fontSize = if (compact) 14.sp else 17.sp,
             lineHeight = if (compact) 18.sp else 23.sp)
