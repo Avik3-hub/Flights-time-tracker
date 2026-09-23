@@ -63,6 +63,7 @@ fun MoreScreen(
         Text("Параметры борта", style = MaterialTheme.typography.titleMedium)
         MoreAction("Оформление", selectedTheme.title, Icons.Outlined.Palette, onThemeClick)
         MoreAction("Тарифы", "Полёты и дежурства", Icons.Outlined.Tune, onTariffsClick)
+        Text("Разработка © Avik3", style = MaterialTheme.typography.bodyMedium)
         Text("Версия $versionName", style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(

@@ -95,48 +95,45 @@ fun OverviewContent(
     onEditFlight: (FlightEntity) -> Unit,
     onAddFlight: () -> Unit
 ) {
-    val theme = LocalCockpitTheme.current
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-            .padding(horizontal = 14.dp).padding(bottom = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        AircraftHeader()
-        MonthSelector(year, month, onPeriodChange)
-        BoxWithConstraints(Modifier.fillMaxWidth()) {
-            // Side by side when readable; enlarged fonts get full-width panels.
-            if (maxWidth >= 320.dp && LocalDensity.current.fontScale <= 1.15f) {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Box(Modifier.weight(1f)) { MonthlyTimePanel(report, compact = true) }
-                    Box(Modifier.weight(1f)) { FinancePanel(report, compact = true) }
+    BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = 14.dp)) {
+        val viewportHeight = constraints.maxHeight
+        val gap = with(LocalDensity.current) { 12.dp.roundToPx() }
+        // Measure natural content first; the last panel fills unused viewport space.
+        // Content can still scroll on short screens and with enlarged fonts.
+        androidx.compose.ui.layout.Layout(
+            modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+            content = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    AircraftHeader()
+                    MonthSelector(year, month, onPeriodChange)
+                    BoxWithConstraints(Modifier.fillMaxWidth()) {
+                        if (maxWidth >= 320.dp && LocalDensity.current.fontScale <= 1.15f) {
+                            Row(Modifier.height(IntrinsicSize.Min),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Box(Modifier.weight(1f).fillMaxHeight()) { MonthlyTimePanel(report, compact = true) }
+                                Box(Modifier.weight(1f).fillMaxHeight()) { FinancePanel(report, compact = true) }
+                            }
+                        } else {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                MonthlyTimePanel(report)
+                                FinancePanel(report)
+                            }
+                        }
+                    }
+                    Metrics(report, dutyDays)
                 }
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    MonthlyTimePanel(report)
-                    FinancePanel(report)
-                }
+                RecentFlightsPanel(flights, onEditFlight, onAddFlight)
+            }
+        ) { measurables, incoming ->
+            val natural = incoming.copy(minHeight = 0)
+            val header = measurables[0].measure(natural)
+            val remaining = (viewportHeight - header.height - gap * 2).coerceAtLeast(0)
+            val recent = measurables[1].measure(natural.copy(minHeight = remaining))
+            layout(incoming.maxWidth, header.height + recent.height + gap * 2) {
+                header.placeRelative(0, 0)
+                recent.placeRelative(0, header.height + gap)
             }
         }
-        Metrics(report, dutyDays)
-
-        RecentFlightsPanel(flights, onEditFlight, onOpenJournal, onAddFlight)
-
-        if (theme != AppTheme.AMOLED) {
-            Button(
-                onClick = onAddFlight,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp),
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                )
-            ) {
-                Icon(Icons.Default.Add, null, Modifier.size(26.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Полёт", fontFamily = CabinFont, fontSize = 22.sp)
-            }
-        }
-
     }
 }
 
@@ -287,27 +284,18 @@ private fun MetricTile(label: String, value: String, icon: ImageVector, theme: A
 private fun RecentFlightsPanel(
     flights: List<FlightEntity>,
     onEdit: (FlightEntity) -> Unit,
-    onJournal: () -> Unit,
     onAdd: () -> Unit
 ) {
-    val night = LocalCockpitTheme.current == AppTheme.AMOLED
     CockpitPanel(padding = 0, spacing = 0) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Text("Последние полёты", Modifier.weight(1f), fontSize = 18.sp,
                 fontFamily = CabinFont)
-            if (night) {
-                OutlinedButton(onClick = onAdd, shape = RoundedCornerShape(7.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)) {
-                    Icon(Icons.Default.Add, null, Modifier.size(16.dp))
-                    Text("Полёт", fontSize = 16.sp)
-                }
-            } else {
-                TextButton(onClick = onJournal, contentPadding = PaddingValues(4.dp)) {
-                    Text("Все", fontSize = 12.sp)
-                    Icon(Icons.Default.ChevronRight, null, Modifier.size(18.dp))
-                }
+            OutlinedButton(onClick = onAdd, shape = RoundedCornerShape(7.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)) {
+                Icon(Icons.Default.Add, null, Modifier.size(16.dp))
+                Text("Полёт", fontSize = 16.sp)
             }
         }
         if (flights.isEmpty()) {

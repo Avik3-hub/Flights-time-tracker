@@ -76,19 +76,6 @@ fun MainScreen(
 
     CockpitScaffold(page = page, onPageChange = { page = it }) { innerPadding ->
         Column(Modifier.fillMaxSize().padding(innerPadding)) {
-            // Fixed action does not cover the last journal row on small screens.
-            if (page == 1) {
-                OutlinedButton(
-                    onClick = { page = 2 },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(9.dp)
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Полёт", fontWeight = FontWeight.Normal)
-                }
-            }
             Box(Modifier.weight(1f)) {
                 stateHolder.SaveableStateProvider(page) {
                     when (page) {
