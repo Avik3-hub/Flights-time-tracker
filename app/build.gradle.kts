@@ -13,7 +13,7 @@ android {
         applicationId = "com.example.flightlog"
         minSdk = 26
         targetSdk = 34
-        versionCode = 29
+        versionCode = 30
         versionName = "2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -33,13 +33,14 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
         release {
-            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("debug")
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-      
-}
+        }
     }
 
     compileOptions {

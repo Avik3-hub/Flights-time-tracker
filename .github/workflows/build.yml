@@ -39,7 +39,7 @@ jobs:
         fi
 
     - name: Build APK
-      run: gradle testDebugUnitTest assembleDebug
+      run: gradle testDebugUnitTest assembleRelease
 
     - name: Read application version
       id: version
@@ -53,6 +53,6 @@ jobs:
       with:
         tag_name: "v${{ steps.version.outputs.name }}-build.${{ github.run_number }}"
         name: "FlightLog ${{ steps.version.outputs.name }} (build ${{ github.run_number }})"
-        files: app/build/outputs/apk/debug/*.apk
+        files: app/build/outputs/apk/release/*.apk
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
