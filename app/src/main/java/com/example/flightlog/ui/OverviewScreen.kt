@@ -61,7 +61,8 @@ fun OverviewScreen(
     onPeriodChange: (Int, Int) -> Unit,
     onOpenJournal: () -> Unit,
     onEditFlight: (FlightEntity) -> Unit,
-    onAddFlight: () -> Unit
+    onAddFlight: () -> Unit,
+    onAddDuty: () -> Unit
 ) {
     val monthlyFlights = remember(flights, year, month) {
         flights.filter { flight ->
@@ -78,7 +79,8 @@ fun OverviewScreen(
     OverviewContent(
         report = report, flights = monthlyFlights, dutyDays = duty?.dutyDays ?: 0,
         year = year, month = month, onPeriodChange = onPeriodChange,
-        onOpenJournal = onOpenJournal, onEditFlight = onEditFlight, onAddFlight = onAddFlight
+        onOpenJournal = onOpenJournal, onEditFlight = onEditFlight,
+        onAddFlight = onAddFlight, onAddDuty = onAddDuty
     )
 }
 
@@ -93,7 +95,8 @@ fun OverviewContent(
     onPeriodChange: (Int, Int) -> Unit,
     onOpenJournal: () -> Unit,
     onEditFlight: (FlightEntity) -> Unit,
-    onAddFlight: () -> Unit
+    onAddFlight: () -> Unit,
+    onAddDuty: () -> Unit
 ) {
     BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = 14.dp)) {
         val viewportHeight = constraints.maxHeight
@@ -122,7 +125,7 @@ fun OverviewContent(
                     }
                     Metrics(report, dutyDays)
                 }
-                RecentFlightsPanel(flights, onEditFlight, onAddFlight)
+                RecentFlightsPanel(flights, onEditFlight, onAddFlight, onAddDuty)
             }
         ) { measurables, incoming ->
             val natural = incoming.copy(minHeight = 0)
@@ -284,18 +287,32 @@ private fun MetricTile(label: String, value: String, icon: ImageVector, theme: A
 private fun RecentFlightsPanel(
     flights: List<FlightEntity>,
     onEdit: (FlightEntity) -> Unit,
-    onAdd: () -> Unit
+    onAdd: () -> Unit,
+    onAddDuty: () -> Unit
 ) {
     CockpitPanel(padding = 0, spacing = 0) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically) {
-            Text("Последние полёты", Modifier.weight(1f), fontSize = 18.sp,
-                fontFamily = CabinFont)
+            Text(
+                "Последние полёты",
+                Modifier.weight(1f),
+                fontSize = 15.sp,
+                fontFamily = CabinFont,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
             OutlinedButton(onClick = onAdd, shape = RoundedCornerShape(7.dp),
-                contentPadding = PaddingValues(horizontal = 16.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)) {
                 Icon(Icons.Default.Add, null, Modifier.size(16.dp))
-                Text("Полёт", fontSize = 16.sp)
+                Text("Полёт", fontSize = 13.sp)
+            }
+            Spacer(Modifier.width(6.dp))
+            OutlinedButton(onClick = onAddDuty, shape = RoundedCornerShape(7.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)) {
+                Icon(Icons.Default.Add, null, Modifier.size(16.dp))
+                Text("Дежурство", fontSize = 13.sp)
             }
         }
         if (flights.isEmpty()) {

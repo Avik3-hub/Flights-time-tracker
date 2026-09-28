@@ -30,14 +30,14 @@ internal fun CockpitScaffold(
                 title = {
                     Column {
                         Text(
-                            when (page) { 1 -> "Журнал полётов"; 2 -> "Новый полёт"; 3 -> "Ещё"; else -> "Счётчик налёта" },
+                            when (page) { 1 -> "Журнал полётов"; 2 -> "Новый полёт"; 3 -> "Ещё"; 4 -> "Новое дежурство"; else -> "Счётчик налёта" },
                             style = MaterialTheme.typography.titleLarge
                         )
                     }
                 },
                 actions = { Box(Modifier.padding(end = 14.dp)) { ThemeIndicator() } },
                 navigationIcon = {
-                    if (page == 2) {
+                    if (page == 2 || page == 4) {
                         IconButton(onClick = { onPageChange(0) }) {
                             Icon(Icons.Default.ArrowBack, contentDescription = "Назад к обзору")
                         }

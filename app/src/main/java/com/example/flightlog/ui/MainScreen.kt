@@ -88,7 +88,8 @@ fun MainScreen(
                                 page = 1
                             },
                             onEditFlight = { flightToEdit = it },
-                            onAddFlight = { page = 2 }
+                            onAddFlight = { page = 2 },
+                            onAddDuty = { page = 4 }
                         )
                         1 -> StatisticsTabScreen(
                             flights = flights, dutyRecords = dutyRecords, tariffs = tariffs,
@@ -102,14 +103,18 @@ fun MainScreen(
                             }
                         )
                         2 -> InputTabScreen(
-                            flights = flights, dutyRecords = dutyRecords,
-                            onAddFlight = onAddFlight, onSaveDuty = onSaveDuty
+                            flights = flights,
+                            onAddFlight = onAddFlight
                         )
                         3 -> MoreScreen(
                             selectedTheme = selectedTheme,
                             onThemeClick = { showThemes = true },
                             onTariffsClick = onSettingsClick,
                             versionName = versionName
+                        )
+                        4 -> DutyInputScreen(
+                            dutyRecords = dutyRecords,
+                            onSaveDuty = onSaveDuty
                         )
                     }
                 }
@@ -151,9 +156,7 @@ fun MainScreen(
 @Composable
 fun InputTabScreen(
     flights: List<FlightEntity>,
-    dutyRecords: List<DutyEntity>,
-    onAddFlight: (FlightEntity) -> Unit,
-    onSaveDuty: (DutyEntity) -> Unit
+    onAddFlight: (FlightEntity) -> Unit
 ) {
     val context = LocalContext.current
     var selectedDateMillis by rememberSaveable { mutableLongStateOf(System.currentTimeMillis()) }
@@ -189,23 +192,6 @@ fun InputTabScreen(
         if (captain.isBlank()) captainOptions
         else captainOptions.filter { it.contains(captain, ignoreCase = true) }
     }
-
-    val currentCal = remember { Calendar.getInstance() }
-    var dutyYear by rememberSaveable { mutableIntStateOf(currentCal.get(Calendar.YEAR)) }
-    var dutyMonth by rememberSaveable { mutableIntStateOf(currentCal.get(Calendar.MONTH) + 1) }
-
-    val existingDuty = remember(dutyRecords, dutyYear, dutyMonth) {
-        dutyRecords.find { it.year == dutyYear && it.month == dutyMonth }
-    }
-    var dutyDaysInput by rememberSaveable(existingDuty, dutyYear, dutyMonth) {
-        mutableStateOf(existingDuty?.dutyDays?.toString() ?: "")
-    }
-
-    val monthNames = listOf(
-        "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
-        "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
-    )
-    val yearsList = listOf(2024, 2025, 2026, 2027, 2028)
 
     LazyColumn(
         modifier = Modifier
@@ -406,123 +392,6 @@ fun InputTabScreen(
                 }
             }
         }
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer
-                )
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Text(
-                        text = "Дежурство (Варандей)",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Normal
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        var yearExpanded by rememberSaveable { mutableStateOf(false) }
-                        ExposedDropdownMenuBox(
-                            expanded = yearExpanded,
-                            onExpandedChange = { yearExpanded = !yearExpanded },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            OutlinedTextField(
-                                value = dutyYear.toString(),
-                                onValueChange = {},
-                                readOnly = true,
-                                label = { Text("Год") },
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = yearExpanded) },
-                                modifier = Modifier.menuAnchor()
-                            )
-                            ExposedDropdownMenu(
-                                expanded = yearExpanded,
-                                onDismissRequest = { yearExpanded = false }
-                            ) {
-                                yearsList.forEach { y ->
-                                    DropdownMenuItem(
-                                        text = { Text(y.toString()) },
-                                        onClick = {
-                                            dutyYear = y
-                                            yearExpanded = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                        var monthExpanded by rememberSaveable { mutableStateOf(false) }
-                        ExposedDropdownMenuBox(
-                            expanded = monthExpanded,
-                            onExpandedChange = { monthExpanded = !monthExpanded },
-                            modifier = Modifier.weight(1.3f)
-                        ) {
-                            OutlinedTextField(
-                                value = monthNames[dutyMonth - 1],
-                                onValueChange = {},
-                                readOnly = true,
-                                label = { Text("Месяц") },
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = monthExpanded) },
-                                modifier = Modifier.menuAnchor()
-                            )
-                            ExposedDropdownMenu(
-                                expanded = monthExpanded,
-                                onDismissRequest = { monthExpanded = false }
-                            ) {
-                                monthNames.forEachIndexed { idx, mName ->
-                                    DropdownMenuItem(
-                                        text = { Text(mName) },
-                                        onClick = {
-                                            dutyMonth = idx + 1
-                                            monthExpanded = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        OutlinedTextField(
-                            value = dutyDaysInput,
-                            onValueChange = { dutyDaysInput = it },
-                            label = { Text("Дней дежурства") },
-                            placeholder = { Text("0") },
-                            modifier = Modifier.weight(1f),
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Button(
-                            onClick = {
-                                val daysCount = dutyDaysInput.toIntOrNull() ?: 0
-                                val dutyToSave = existingDuty?.copy(dutyDays = daysCount)
-                                    ?: DutyEntity(
-                                        month = dutyMonth,
-                                        year = dutyYear,
-                                        dutyDays = daysCount
-                                    )
-                                onSaveDuty(dutyToSave)
-                                Toast.makeText(
-                                    context,
-                                    if (existingDuty != null) "Дежурство обновлено" else "Дежурство сохранено",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }
-                        ) {
-                            Text(if (existingDuty != null) "Обновить" else "Сохранить")
-                        }
-                    }
-                }
-            }
-        }
     }
 
     if (showDatePicker) {
@@ -589,6 +458,120 @@ fun InputTabScreen(
                 }
             }
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DutyInputScreen(
+    dutyRecords: List<DutyEntity>,
+    onSaveDuty: (DutyEntity) -> Unit
+) {
+    val context = LocalContext.current
+    val calendar = remember { Calendar.getInstance() }
+    var dutyYear by rememberSaveable { mutableIntStateOf(calendar.get(Calendar.YEAR)) }
+    var dutyMonth by rememberSaveable { mutableIntStateOf(calendar.get(Calendar.MONTH) + 1) }
+    val existingDuty = remember(dutyRecords, dutyYear, dutyMonth) {
+        dutyRecords.find { it.year == dutyYear && it.month == dutyMonth }
+    }
+    var dutyDaysInput by rememberSaveable(existingDuty, dutyYear, dutyMonth) {
+        mutableStateOf(existingDuty?.dutyDays?.toString() ?: "")
+    }
+    var yearExpanded by rememberSaveable { mutableStateOf(false) }
+    var monthExpanded by rememberSaveable { mutableStateOf(false) }
+    val monthNames = listOf(
+        "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+        "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
+    )
+    val yearsList = listOf(2024, 2025, 2026, 2027, 2028)
+
+    Column(
+        modifier = Modifier.fillMaxSize().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text("Дежурство (Варандей)", style = MaterialTheme.typography.titleMedium)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    ExposedDropdownMenuBox(
+                        expanded = yearExpanded,
+                        onExpandedChange = { yearExpanded = !yearExpanded },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        OutlinedTextField(
+                            value = dutyYear.toString(), onValueChange = {}, readOnly = true,
+                            label = { Text("Год") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(yearExpanded) },
+                            modifier = Modifier.fillMaxWidth().menuAnchor()
+                        )
+                        ExposedDropdownMenu(yearExpanded, { yearExpanded = false }) {
+                            yearsList.forEach { year ->
+                                DropdownMenuItem(text = { Text(year.toString()) }, onClick = {
+                                    dutyYear = year
+                                    yearExpanded = false
+                                })
+                            }
+                        }
+                    }
+                    ExposedDropdownMenuBox(
+                        expanded = monthExpanded,
+                        onExpandedChange = { monthExpanded = !monthExpanded },
+                        modifier = Modifier.weight(1.3f)
+                    ) {
+                        OutlinedTextField(
+                            value = monthNames[dutyMonth - 1], onValueChange = {}, readOnly = true,
+                            label = { Text("Месяц") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(monthExpanded) },
+                            modifier = Modifier.fillMaxWidth().menuAnchor()
+                        )
+                        ExposedDropdownMenu(monthExpanded, { monthExpanded = false }) {
+                            monthNames.forEachIndexed { index, name ->
+                                DropdownMenuItem(text = { Text(name) }, onClick = {
+                                    dutyMonth = index + 1
+                                    monthExpanded = false
+                                })
+                            }
+                        }
+                    }
+                }
+                OutlinedTextField(
+                    value = dutyDaysInput,
+                    onValueChange = { dutyDaysInput = it },
+                    label = { Text("Дней дежурства") },
+                    placeholder = { Text("0") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
+                Button(
+                    onClick = {
+                        val days = dutyDaysInput.toIntOrNull() ?: 0
+                        val duty = existingDuty?.copy(dutyDays = days)
+                            ?: DutyEntity(month = dutyMonth, year = dutyYear, dutyDays = days)
+                        onSaveDuty(duty)
+                        Toast.makeText(
+                            context,
+                            if (existingDuty != null) "Дежурство обновлено" else "Дежурство сохранено",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (existingDuty != null) "Обновить дежурство" else "Сохранить дежурство")
+                }
+            }
+        }
     }
 }
 
