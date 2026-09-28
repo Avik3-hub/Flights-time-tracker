@@ -22,8 +22,8 @@ fun SettingsScreen(
     onSaveTariff: (TariffEntity) -> Unit,
     onBackClick: () -> Unit
 ) {
-    var effectiveYear by rememberSaveable { mutableIntStateOf(currentTariff.effectiveFromYear) }
-    var effectiveMonth by rememberSaveable { mutableIntStateOf(currentTariff.effectiveFromMonth) }
+    var effectiveYear by rememberSaveable(currentTariff) { mutableIntStateOf(currentTariff.effectiveFromYear) }
+    var effectiveMonth by rememberSaveable(currentTariff) { mutableIntStateOf(currentTariff.effectiveFromMonth) }
 
     var landRate by rememberSaveable(currentTariff) { mutableStateOf(currentTariff.landHourlyRate.toString()) }
     var seaRate by rememberSaveable(currentTariff) { mutableStateOf(currentTariff.seaHourlyRate.toString()) }

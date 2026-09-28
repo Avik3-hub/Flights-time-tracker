@@ -6,6 +6,7 @@ import androidx.room.Room
 import com.example.flightlog.data.db.*
 import com.example.flightlog.data.export.ExcelExporter
 import com.example.flightlog.data.export.ExcelImporter
+import com.example.flightlog.domain.CalculationEngine
 import com.example.flightlog.ui.displayAircraftNumber
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import org.junit.Assert.*
@@ -88,5 +89,33 @@ class FlightUpgradeTest {
         assertEquals("RA-22468", displayAircraftNumber("ра 22468"))
         assertEquals("RF-12345", displayAircraftNumber("RF-12345"))
         assertEquals("—", displayAircraftNumber(""))
+    }
+
+    @Test fun defaultTariffMatchesCurrentRatesAndDoesNotZeroSeaOrDuty() {
+        val tariff = CalculationEngine.getActiveTariff(emptyList(), 2026, 9)
+
+        assertEquals(2026, tariff.effectiveFromYear)
+        assertEquals(9, tariff.effectiveFromMonth)
+        assertEquals(1180.0, tariff.landHourlyRate, 0.0)
+        assertEquals(5964.0, tariff.seaHourlyRate, 0.0)
+        assertEquals(1952.0, tariff.dutyDayRate, 0.0)
+
+        val report = CalculationEngine.calculateReport(
+            flights = listOf(
+                FlightEntity(
+                    dateTimestamp = 1790035200000,
+                    aircraftNumber = "22468",
+                    captain = "Иванов",
+                    missionNumber = "192",
+                    landTimeMinutes = 60,
+                    seaTimeMinutes = 60
+                )
+            ),
+            duties = listOf(DutyEntity(year = 2026, month = 9, dutyDays = 1)),
+            tariffs = emptyList()
+        )
+
+        assertTrue(report.seaPayment > 0.0)
+        assertTrue(report.dutyPayment > 0.0)
     }
 }

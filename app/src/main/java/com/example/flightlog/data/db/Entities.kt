@@ -33,7 +33,26 @@ data class DutyEntity(
 data class TariffEntity(
     val effectiveFromYear: Int,
     val effectiveFromMonth: Int,
-    val landHourlyRate: Double = 879.57,
-    val seaHourlyRate: Double = 0.0,
-    val dutyDayRate: Double = 0.0
-)
+    val landHourlyRate: Double = DEFAULT_LAND_HOURLY_RATE,
+    val seaHourlyRate: Double = DEFAULT_SEA_HOURLY_RATE,
+    val dutyDayRate: Double = DEFAULT_DUTY_DAY_RATE
+) {
+    companion object {
+        const val DEFAULT_EFFECTIVE_YEAR = 2026
+        const val DEFAULT_EFFECTIVE_MONTH = 7
+        const val DEFAULT_LAND_HOURLY_RATE = 1180.0
+        const val DEFAULT_SEA_HOURLY_RATE = 5964.0
+        const val DEFAULT_DUTY_DAY_RATE = 1952.0
+
+        fun default(
+            effectiveFromYear: Int = DEFAULT_EFFECTIVE_YEAR,
+            effectiveFromMonth: Int = DEFAULT_EFFECTIVE_MONTH
+        ) = TariffEntity(
+            effectiveFromYear = effectiveFromYear,
+            effectiveFromMonth = effectiveFromMonth,
+            landHourlyRate = DEFAULT_LAND_HOURLY_RATE,
+            seaHourlyRate = DEFAULT_SEA_HOURLY_RATE,
+            dutyDayRate = DEFAULT_DUTY_DAY_RATE
+        )
+    }
+}

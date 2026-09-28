@@ -40,13 +40,7 @@ object CalculationEngine {
         }
 
         // 3. Абсолютный фоллбек, если таблица тарифов полностью пуста
-        return TariffEntity(
-            effectiveFromYear = year,
-            effectiveFromMonth = month,
-            landHourlyRate = 879.57,
-            seaHourlyRate = 0.0,
-            dutyDayRate = 0.0
-        )
+        return TariffEntity.default(year, month)
     }
 
     /**
