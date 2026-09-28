@@ -105,13 +105,7 @@ class MainActivity : ComponentActivity() {
                         }
                         
                         "settings" -> {
-                            val currentTariff = tariffs.firstOrNull() ?: TariffEntity(
-                                effectiveFromYear = 2026,
-                                effectiveFromMonth = 7,
-                                landHourlyRate = 1180.0,
-                                seaHourlyRate = 5964.0,
-                                dutyDayRate = 1952.0
-                            )
+                            val currentTariff = tariffs.firstOrNull() ?: TariffEntity.default()
                             SettingsScreen(
                                 currentTariff = currentTariff,
                                 onSaveTariff = { updatedTariff ->

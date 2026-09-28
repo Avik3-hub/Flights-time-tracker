@@ -687,13 +687,6 @@ fun StatisticsTabScreen(
     val activeTariff = remember(tariffs, selectedYear, selectedMonth) {
         val monthForSearch = if (selectedMonth == 0) 12 else selectedMonth
         CalculationEngine.getActiveTariff(tariffs, selectedYear, monthForSearch)
-            ?: TariffEntity(
-                effectiveFromYear = 2025,
-                effectiveFromMonth = 1,
-                landHourlyRate = 879.57,
-                seaHourlyRate = 0.0,
-                dutyDayRate = 0.0
-            )
     }
 
     val report: MonthlyReport = remember(filteredFlights, selectedDuty, tariffs) {
