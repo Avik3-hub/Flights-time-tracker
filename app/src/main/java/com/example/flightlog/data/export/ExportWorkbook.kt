@@ -8,7 +8,7 @@ import java.io.OutputStream
 /** Writes the existing report layout without POI's reflective OOXML machinery. */
 internal class ExportWorkbook {
     private val buffer = ByteArrayOutputStream()
-    private val workbook = Workbook(buffer, "FlightLog", "2.0.2")
+    private val workbook = Workbook(buffer, "FlightLog", "2.0")
 
     fun createSheet(name: String) = ExportSheet(workbook.newWorksheet(name))
 
