@@ -1,6 +1,8 @@
 package com.example.flightlog
 
 import android.content.Context
+import android.content.Intent
+import com.example.flightlog.widget.FlightWidgetProvider
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -28,14 +30,28 @@ import androidx.compose.runtime.LaunchedEffect
 import com.example.flightlog.ui.LaunchScreen
 
 class MainActivity : ComponentActivity() {
+    private var widgetRequest by mutableStateOf(0)
+
+    override fun onResume() {
+        super.onResume()
+        FlightWidgetProvider.updateAll(this)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.action == FlightWidgetProvider.ACTION_ADD_FLIGHT) widgetRequest++
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (intent.action == FlightWidgetProvider.ACTION_ADD_FLIGHT) widgetRequest++
         
         val db = AppDatabase.getDatabase(this)
         val prefs = getSharedPreferences("app_settings", Context.MODE_PRIVATE)
 
         setContent {
-            var launching by rememberSaveable { mutableStateOf(savedInstanceState == null) }
+            var launching by rememberSaveable { mutableStateOf(savedInstanceState == null && widgetRequest == 0) }
             LaunchedEffect(Unit) { delay(700); launching = false }
             var selectedTheme by remember {
                 mutableStateOf(AppTheme.fromPreferences(
@@ -45,6 +61,9 @@ class MainActivity : ComponentActivity() {
             }
             
             var currentScreen by rememberSaveable { mutableStateOf("main") }
+            LaunchedEffect(widgetRequest) {
+                if (widgetRequest > 0) { currentScreen = "main"; launching = false }
+            }
             val screenStateHolder = rememberSaveableStateHolder()
             BackHandler(enabled = currentScreen != "main") { currentScreen = "main" }
 
@@ -65,9 +84,11 @@ class MainActivity : ComponentActivity() {
                                 dutyRecords = dutyRecords,
                                 tariffs = tariffs,
                                 selectedTheme = selectedTheme,
+                                addFlightRequest = widgetRequest,
                                 onSelectTheme = { theme ->
                                     selectedTheme = theme
                                     prefs.edit().putString("theme_mode", theme.name).apply()
+                                    FlightWidgetProvider.updateAll(this@MainActivity)
                                 },
                                 onAddFlight = { flight ->
                                     lifecycleScope.launch {

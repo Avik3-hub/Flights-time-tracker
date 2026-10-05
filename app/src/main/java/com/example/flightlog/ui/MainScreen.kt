@@ -57,7 +57,8 @@ fun MainScreen(
     onDeleteFlight: (Long) -> Unit,
     onSaveDuty: (DutyEntity) -> Unit,
     onSaveTariff: (TariffEntity) -> Unit = {},
-    onSettingsClick: () -> Unit
+    onSettingsClick: () -> Unit,
+    addFlightRequest: Int = 0
 ) {
     val context = LocalContext.current
     val versionName = remember {
@@ -65,6 +66,9 @@ fun MainScreen(
         catch (_: Exception) { "" }
     }
     var page by rememberSaveable { mutableIntStateOf(0) }
+    LaunchedEffect(addFlightRequest) {
+        if (addFlightRequest > 0) page = 2
+    }
     val stateHolder = rememberSaveableStateHolder()
     val now = remember { Calendar.getInstance() }
     var overviewYear by rememberSaveable { mutableIntStateOf(now.get(Calendar.YEAR)) }
