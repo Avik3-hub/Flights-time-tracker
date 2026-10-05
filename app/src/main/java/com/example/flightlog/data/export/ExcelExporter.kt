@@ -6,7 +6,6 @@ import com.example.flightlog.data.db.DutyEntity
 import com.example.flightlog.data.db.FlightEntity
 import com.example.flightlog.data.db.TariffEntity
 import com.example.flightlog.domain.CalculationEngine
-import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -20,10 +19,11 @@ object ExcelExporter {
         flights: List<FlightEntity>,
         duties: List<DutyEntity>,
         activeTariff: TariffEntity?,
-        allTariffs: List<TariffEntity> = emptyList()
+        allTariffs: List<TariffEntity> = emptyList(),
+        onError: (String) -> Unit = {}
     ): Boolean {
         return try {
-            val workbook = XSSFWorkbook()
+            val workbook = ExportWorkbook()
             
             // Фиксируем UTC, чтобы даты при экспорте/импорте не смещались
             val utcTz = TimeZone.getTimeZone("UTC")
@@ -168,13 +168,16 @@ object ExcelExporter {
             }
 
             // Сохранение файла
-            context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+            val output = context.contentResolver.openOutputStream(uri, "wt")
+                ?: throw java.io.IOException("Не удалось открыть файл для записи")
+            output.use { outputStream ->
                 workbook.write(outputStream)
             }
             workbook.close()
             true
         } catch (e: Throwable) {
             e.printStackTrace()
+            onError(e.localizedMessage ?: e.javaClass.simpleName)
             false
         }
     }

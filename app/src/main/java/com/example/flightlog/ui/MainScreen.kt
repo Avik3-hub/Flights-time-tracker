@@ -880,25 +880,41 @@ fun SummaryCard(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var showImportConfirmation by rememberSaveable { mutableStateOf(false) }
+    var exportError by rememberSaveable { mutableStateOf<String?>(null) }
 
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     ) { uri ->
-        uri?.let {
-            val success = ExcelExporter.exportToExcel(
-                context = context,
-                uri = it,
-                flights = monthlyFlights,
-                duties = allDuties,
-                activeTariff = currentTariff,
-                allTariffs = allTariffs
-            )
-            if (success) {
-                Toast.makeText(context, "Отчет сохранен в Excel!", Toast.LENGTH_LONG).show()
-            } else {
-                Toast.makeText(context, "Ошибка при сохранении", Toast.LENGTH_LONG).show()
+        uri?.let { destination ->
+            coroutineScope.launch {
+                var failure: String? = null
+                val success = withContext(Dispatchers.IO) {
+                    ExcelExporter.exportToExcel(
+                        context = context,
+                        uri = destination,
+                        flights = monthlyFlights,
+                        duties = allDuties,
+                        activeTariff = currentTariff,
+                        allTariffs = allTariffs,
+                        onError = { failure = it }
+                    )
+                }
+                if (success) {
+                    Toast.makeText(context, "Отчет сохранен в Excel!", Toast.LENGTH_LONG).show()
+                } else {
+                    exportError = failure ?: "Не удалось сохранить файл"
+                }
             }
         }
+    }
+
+    if (exportError != null) {
+        AlertDialog(
+            onDismissRequest = { exportError = null },
+            title = { Text("Не удалось сохранить Excel") },
+            text = { Text(exportError.orEmpty()) },
+            confirmButton = { TextButton(onClick = { exportError = null }) { Text("Закрыть") } }
+        )
     }
 
     val importLauncher = rememberLauncherForActivityResult(

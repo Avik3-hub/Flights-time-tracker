@@ -13,6 +13,10 @@ import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalContext
+import com.example.flightlog.widget.FlightWidgetProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
@@ -56,6 +60,7 @@ fun MoreScreen(
     onTariffsClick: () -> Unit,
     versionName: String
 ) {
+    var showWidgetSettings by rememberSaveable { mutableStateOf(false) }
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -63,6 +68,7 @@ fun MoreScreen(
         Text("Параметры борта", style = MaterialTheme.typography.titleMedium)
         MoreAction("Оформление", selectedTheme.title, Icons.Outlined.Palette, onThemeClick)
         MoreAction("Тарифы", "Полёты и дежурства", Icons.Outlined.Tune, onTariffsClick)
+        MoreAction("Настройки виджета", "Прозрачность фона", Icons.Outlined.Tune) { showWidgetSettings = true }
         Text("© Avik3 и Си", style = MaterialTheme.typography.bodyMedium)
         Text("Версия $versionName", style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -73,6 +79,35 @@ fun MoreScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
+    if (showWidgetSettings) {
+        WidgetSettingsDialog { showWidgetSettings = false }
+    }
+}
+
+@Composable
+private fun WidgetSettingsDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("app_settings", android.content.Context.MODE_PRIVATE) }
+    var transparency by rememberSaveable { mutableFloatStateOf(prefs.getInt("widget_transparency", 0).toFloat()) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Настройки виджета") },
+        text = {
+            Column {
+                Text("Прозрачность фона: ${transparency.toInt()}%")
+                Slider(
+                    value = transparency,
+                    onValueChange = { transparency = it },
+                    valueRange = 0f..100f,
+                    onValueChangeFinished = {
+                        prefs.edit().putInt("widget_transparency", transparency.toInt()).apply()
+                        FlightWidgetProvider.updateAll(context)
+                    }
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Готово") } }
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

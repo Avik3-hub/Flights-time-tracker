@@ -1,9 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent">
+    <ImageView android:id="@+id/widget_background_image"
+        android:layout_width="match_parent" android:layout_height="match_parent"
+        android:scaleType="fitXY" android:importantForAccessibility="no" />
+<LinearLayout
     android:id="@+id/widget_root"
     android:layout_width="match_parent" android:layout_height="match_parent"
     android:orientation="horizontal" android:gravity="center_vertical"
-    android:padding="10dp" android:background="@drawable/widget_background">
+    android:padding="10dp">
     <LinearLayout android:layout_width="0dp" android:layout_weight="1"
         android:layout_height="match_parent" android:gravity="center"
         android:orientation="vertical">
@@ -13,7 +18,7 @@
             android:src="@drawable/mi171_artwork" android:contentDescription="Ми-8АМТ" />
         <TextView android:id="@+id/widget_title"
             android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:text="Счётчик налёта" android:textSize="12sp" android:fontFamily="sans-serif-condensed"
+            android:text="Ми-8 АМТ" android:textSize="12sp" android:fontFamily="sans-serif-condensed"
             android:textColor="#C1C0BA" android:gravity="center"
             android:maxLines="1" android:ellipsize="end" />
     </LinearLayout>
@@ -24,3 +29,4 @@
         android:textColor="#D8A64F" android:background="@drawable/widget_button"
         android:contentDescription="Добавить полёт" />
 </LinearLayout>
+</FrameLayout>
