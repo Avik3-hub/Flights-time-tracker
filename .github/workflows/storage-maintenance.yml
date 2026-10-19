@@ -1,0 +1,22 @@
+name: Actions storage maintenance
+on:
+  push:
+    branches: [maintenance/actions-storage-20261019]
+    paths: [.github/workflows/storage-maintenance.yml]
+permissions:
+  actions: read
+  contents: read
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Inventory artifacts without downloading or changing builds
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const artifacts = await github.paginate(github.rest.actions.listArtifactsForRepo,{owner,repo,per_page:100});
+            const rows = artifacts.filter(a=>!a.expired).map(a=>({id:a.id,name:a.name,bytes:a.size_in_bytes,created:a.created_at,run:a.workflow_run?.id,branch:a.workflow_run?.head_branch,sha:a.workflow_run?.head_sha}));
+            console.log('INVENTORY_JSON='+JSON.stringify(rows));
+            console.log('TOTAL_BYTES='+rows.reduce((n,a)=>n+a.bytes,0));
